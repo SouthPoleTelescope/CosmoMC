@@ -35,6 +35,8 @@
     use noncliklike
 #endif
     use BK_planck
+    use CMB_SPTpol_TEEE_2017
+    use CMB_SPTpol_BB_2018
     class(TLikelihoodList) :: LikeList
     class(TSettingIni) :: ini
     class(TCMBLikelihood), pointer  :: like
@@ -58,6 +60,12 @@
         else
             if (DataSets%Name(i) == 'BKPLANCK') then
                 allocate(TBK_planck::like)
+             elseif (DataSets%Name(i) == 'SPTPOL_TEEE') then
+                if (feedback > 1) print*,'trying to do sptpol TEEE'
+                allocate(TSPTpolEELike::like)
+             elseif (DataSets%Name(i) == 'SPTPOL_BB') then
+                if (feedback > 1) print*,'trying to do sptpol BB'
+                allocate(TSPTpolBBLike::like)
             else
                 allocate(TCMBLikes::like)
             end if
