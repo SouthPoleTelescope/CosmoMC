@@ -1,7 +1,7 @@
- !Likelihood code used in Sayre et al 2018
+ !Likelihood code used in Sayre et al 2019
   !SPTpol 500d B power spectrum
   !For questions, please contact Christian Reichardt or JT Sayre
-module CMB_SPTpol_BB_2018
+module CMB_SPTpol_BB_2019
     use Likelihood_Cosmology
     use CosmoTheory
     use CosmologyTypes
@@ -17,8 +17,8 @@ module CMB_SPTpol_BB_2018
     double precision, dimension(:,:), allocatable :: spec, cov, beam_err
     double precision, dimension(:,:), allocatable :: windows
     integer :: spt_windows_lmin, spt_windows_lmax,n_beam_terms
-    double precision, dimension(:), allocatable :: eff_dust_freqs,lcenter
-    double precision, dimension(:,:), allocatable :: effFreqs
+    double precision, dimension(:), allocatable :: eff_dust_freqs,eff_sync_freqslcenter
+    double precision, dimension(:,:), allocatable :: effFreqs, effSyncFreqs
 
     !logical, parameter :: DoBeamGrid = .false.
     integer, parameter :: N_BEAM_EXPECTED = 7
@@ -36,6 +36,7 @@ module CMB_SPTpol_BB_2018
     logical :: SPTpol_Drop150x150ghz, SPTpol_Drop90x150ghz, SPTpol_Drop90x90ghz
     logical :: BlindR
     logical :: BlindAbb
+    logical :: IndepPoisson
 
     !real(mcp) :: meanBeam
     !real(mcp) :: meanBcal90, sigmaBcal90
@@ -70,6 +71,7 @@ contains
 
    BlindR = Ini%Read_Logical('sptpol_blind_r', .false.)
    BlindAbb = Ini%Read_Logical('sptpol_blind_abb', .false.)
+   IndepPoisson = Ini%Read_Logical('sptpol_indep_poisson', .true.)
    
 !   SPTpol_150ghzonly = Ini%Read_Logical('sptpol_150ghz_only', .false.)
 !!   SPTpol_95ghzonly = Ini%Read_Logical('sptpol_95ghz_only', .false.)
@@ -174,7 +176,11 @@ contains
    read (F%unit,*) spt_windows_lmin, spt_windows_lmax !Min and Max ell in window file
    allocate(eff_dust_freqs(nfreq))
    do i=1,nfreq
-      read (F%unit,*) eff_dust_freqs(i) !Eff freq of sptpol's bands for galactic dust, monotonically decreasing
+      read (F%unit,*) eff_dust_freqs(i) !Eff freq of sptpol's bands for dust, monotonically decreasing
+   enddo
+      allocate(eff_sync_freqs(nfreq))
+   do i=1,nfreq
+      read (F%unit,*) eff_sync_freqs(i) !Eff freq of sptpol's bands for radio sources, monotonically decreasing
    enddo
    call F%Close()
    
@@ -220,16 +226,18 @@ contains
 
    
    !Populate effFreqs Array
-   allocate(effFreqs(2,nband))
+   allocate(effFreqs(2,nband),effSyncFreqs(2,nband))
    k=0
    do i=1,nfreq
       do j=i,nfreq
          k=k+1
          effFreqs(1,k) = eff_dust_freqs(i)
          effFreqs(2,k) = eff_dust_freqs(j)
+         effSyncFreqs(1,k) = eff_sync_freqs(i)
+         effSyncFreqs(2,k) = eff_sync_freqs(j)
       enddo
    enddo
-   deallocate(eff_dust_freqs) ! no longer needed
+   deallocate(eff_dust_freqs,eff_sync_freqs) ! no longer needed
 
    !Define an array with the l*(l+1)/2pi factor to convert to Dl from Cl.
    do j=spt_windows_lmin,spt_windows_lmax
@@ -313,34 +321,10 @@ contains
 
    endif
 
-!   if (sptpol_95ghzonly .or. sptpol_150ghzonly) then
-!      print *, 'Exploding off-diagonal cov blocks...'
-      !Explode the off-diagonal blocks.
-!      cov(1:nbin,nbin+1:3*nbin) = cov(1:nbin,nbin+1:3*nbin)*1d12
-!      cov(2*nbin+1:3*nbin,1:2*nbin) = cov(2*nbin+1:3*nbin,1:2*nbin)*1d12
-!      cov(nbin+1:2*nbin,:) = cov(nbin+1:2*nbin,:)*1d12
-
-      
-      !Explode 150 ghz auto-block if we only want 95
-!      if (sptpol_95ghzonly) then
-!         print *, 'Exploding 150 GHz auto-cov block...'
-!         cov(1:nbin,1:nbin) = cov(1:nbin,1:nbin)*1d12
-!      endif
-
-      !Explode 95ghz auto-block if we only want 150
-!      if (sptpol_150ghzonly) then
-!         print *, 'Exploding 95ghz auto-cov block...'
-!         cov(2*nbin+1:3*nbin,2*nbin+1:3*nbin) = cov(2*nbin+1:3*nbin,2*nbin+1:3*nbin)*1d12
-!      endif
-   
-!   endif
-
    if (feedback > 1) then
       print*,'Dropping 150x150',SPTpol_Drop150x150ghz
       print*,'Dropping 90x150',SPTpol_Drop90x150ghz
       print*,'Dropping 90x90',SPTpol_Drop90x90ghz
- !     print *, '95ghz only: ',  sptpol_95ghzonly
- !     print *, '150ghz only: ', sptpol_150ghzonly
       print *, 'First entry of covariance matrix: ', cov(1,1)
    endif
 
@@ -412,7 +396,7 @@ contains
          if (idx .ne. 1) then
             if (feedback > 2) print*,'parsing str',k
             read(str,*) ltmp,tt,ee,bb,te
-            if (ltmp .le. spt_windows_lmax .and. ltmp .ge. spt_windows_lmin) &
+            if (ltmp .le. spt_windows_lmax .or. ltmp .ge. spt_windows_lmin) &
                  Dls_tensor(ltmp) = bb
          endif
       enddo
@@ -466,10 +450,11 @@ contains
 
    double precision, dimension(spt_windows_lmin:spt_windows_lmax) :: dl_fgs,Dls_dust150ghz
 
-   !DataParams for SPTpol likelihood are: [Abb, Add, Poisson150, Poisson 90x150, Poisson90, MapBcal150, MapBcal90, Beam Factors]
+   !DataParams for SPTpol likelihood are: [Abb, Add, Poisson150, Poisson 90x150, Poisson90, alphaRG, MapBcal150, MapBcal90, Beam Factors]
    integer, parameter :: iAbb = 1, iR=2,iConstbb=3, iAdd = iAbb+3, &
         iPoisson90=iAdd+3, iPoisson90x150=iAdd+2,iPoisson150=iAdd+1, &
-        iMapBcal90=iPoisson90+2,iMapBcal150=iPoisson90+1, &
+        iAlphaRG=iAdd+4
+        iMapBcal90=iPoisson90+3,iMapBcal150=iPoisson90+2, &
         iBeam=iMapBcal90+1
    
    
@@ -502,7 +487,14 @@ contains
 
    if (feedback > 3) print *, 'CMB at lcenter:',dls(lcenter(:))
 
-   PoissonLevels(:) = DataParams(iPoisson150:iPoisson90)
+   if (IndepPoisson) then 
+      PoissonLevels(:) = DataParams(iPoisson150:iPoisson90)
+   else
+      PoissonLevels(1) = DataParams(iPoisson150) 
+      PoissonLevels(2) = DataParams(iPoisson150) * PowerLawFreqScaling(DataParams(iAlphaRG),effSyncFreqs(1,1),effSyncFreqs(:,2))
+      PoissonLevels(3) = DataParams(iPoisson150) * PowerLawFreqScaling(DataParams(iAlphaRG),effSyncFreqs(1,1),effSyncFreqs(:,3))
+   end if
+   
    ADust = DataParams(iAdd) !150GHz dust amplitude, in Dl
    Dls_dust150ghz = ADust * Dls_galdust
 
@@ -811,7 +803,22 @@ contains
     
   end function dustFreqScalingFrom150GHz
 
+  function PowerLawFreqScaling(alpha,sigmasq,fr0,freqs)
+    real(mcp), dimension(2), intent(in) :: freqs !output freq pair
+    real(mcp), intent(in) :: alpha ! spectral index
+    real(mcp), intent(in) :: sigmasq !variance in spectral index across source population
+    real(mcp), intent(in) :: fr0 ! normalization frequency, ie comparing predicted power in fr0 x fr0 spectrum to fri x frj spectrum.
+    real(mcp) :: PowerLawFreqScaling
+    real(mcp) :: fri,frj
+    fri=freqs(1)
+    frj=freqs(2)
+    PowerLawFreqScaling = 1/dBdT(fri,fr0)/dBdT(frj,fr0)*&
+         (fri/fr0*frj/fr0)**(alpha + &
+         log(fri/fr0*frj/fr0)/2 * sigmasq)
+
+
+  end function PowerLawFreqScaling
 
   
 
-end module CMB_SPTpol_BB_2018
+end module CMB_SPTpol_BB_2019
