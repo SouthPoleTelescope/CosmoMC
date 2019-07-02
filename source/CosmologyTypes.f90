@@ -10,7 +10,8 @@
         derived_thetaEQ=12, derived_theta_rs_EQ = 13 !index in derived parameters array
 
     integer, parameter :: As_index=1, ns_index =2, nrun_index=3, nrunrun_index=4, amp_ratio_index = 5, &
-        & nt_index= 6, ntrun_index = 7, Aphiphi_index = 8, last_power_index = Aphiphi_index
+         nt_index= 6, ntrun_index = 7, Aphiphi_index = 8, &
+        Apmf_index=9, beta_pmf_index=10, last_power_index = beta_pmf_index
 
     integer, parameter :: max_inipower_params = 10
 

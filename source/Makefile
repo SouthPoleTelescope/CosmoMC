@@ -17,8 +17,8 @@ F90C     = ifort
 
 #use this if mpif90 is trying to use gfortran: MPIF90C = mpif90 -f90=ifort
 
-FFLAGS = -mkl -O3 -no-prec-div -fpp
-DEBUGFLAGS = -mkl -g -check all -check noarg_temp_created -traceback -fpp -fpe0
+FFLAGS = -mkl -O3 -no-prec-div -fpp -assume byterecl -extend-source 132
+DEBUGFLAGS = -mkl -g -check all -check noarg_temp_created -traceback -fpp -fpe0 -assume byterecl -extend-source 132
 #add -fpe0 to check for floating point errors (think lowLike also throws these harmlessly)
 MODOUT = -module $(OUTPUT_DIR)
 LAPACKL =
@@ -147,7 +147,8 @@ ifneq ($(PRECISION),)
 FFLAGS += -D$(PRECISION) -DMATRIX_$(PRECISION)
 endif
 
-PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o
+PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o $(OUTPUT_DIR)/CMB_SPTpol_BB_2018.o
+
 
 ifneq ($(CLIK_PATH),)
 FFLAGS += -DCLIK
@@ -242,6 +243,8 @@ $(OUTPUT_DIR)/CosmologyTypes.o: $(OUTPUT_DIR)/settings.o $(OUTPUT_DIR)/likelihoo
 $(OUTPUT_DIR)/Likelihood_Cosmology.o: $(OUTPUT_DIR)/Calculator_Cosmology.o $(OUTPUT_DIR)/CosmoTheory.o
 $(OUTPUT_DIR)/CMBlikes.o: $(OUTPUT_DIR)/Likelihood_Cosmology.o
 $(OUTPUT_DIR)/CMB_BK_Planck.o: $(OUTPUT_DIR)/CMBlikes.o
+$(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o
+$(OUTPUT_DIR)/CMB_SPTpol_BB_2018.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o
 $(OUTPUT_DIR)/CMB.o: $(OUTPUT_DIR)/CMBlikes.o $(PLANCKLIKEFILES)
 $(OUTPUT_DIR)/bbn.o: $(OUTPUT_DIR)/settings.o $(OUTPUT_DIR)/likelihood.o $(OUTPUT_DIR)/Interpolation.o
 $(OUTPUT_DIR)/mpk.o: $(OUTPUT_DIR)/CosmoTheory.o $(OUTPUT_DIR)/Likelihood_Cosmology.o

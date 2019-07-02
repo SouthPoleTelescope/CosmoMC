@@ -22,7 +22,7 @@ module CMB_SPTpol_BB_2018
 
     !logical, parameter :: DoBeamGrid = .false.
     integer, parameter :: N_BEAM_EXPECTED = 7
-    double precision, dimension(:), allocatable :: cl_to_dl_conversion,ells, Dls_poisson, Dls_galdust,Dls_tensor
+    double precision, dimension(:), allocatable :: cl_to_dl_conversion,ells, Dls_poisson, Dls_galdust,Dls_tensor,Dls_PMFtensor,Dls_PMFvector
        
     double precision :: blind_abb_offset
     double precision, dimension(:), allocatable :: blind_r_offsets
@@ -66,7 +66,10 @@ contains
    character (LEN=Ini_max_string_len) :: blind_r_file
    character (LEN=Ini_max_string_len) :: blind_abb_file
    character (LEN=Ini_max_string_len) :: r_template_file
-   
+   character (LEN=Ini_max_string_len) :: PMFtens_template_file
+   character (LEN=Ini_max_string_len) :: PMFvec_template_file
+   real(mcp) ::  vectorPMF_B1Mpc, tensorPMF_B1Mp, desiredPMF_B1Mpc
+   real(mcp) :: tensorPMF_template_scale, vectorPMF_template_scale
 
    BlindR = Ini%Read_Logical('sptpol_blind_r', .false.)
    BlindAbb = Ini%Read_Logical('sptpol_blind_abb', .false.)
@@ -136,13 +139,84 @@ contains
         call mpistop('Stop: SPTpol: Told to blind Abb, but file doesnt exist')
    !also beam profiles
    beamerr_file = Ini%Read_String_Default('sptpol_BB_beam_file','')
+   
+   PMFvec_template_file = Ini%Read_String_Default('PMFvec_template_file','')
+   PMFtens_template_file = Ini%Read_String_Default('PMFtens_template_file','')
+   Apmf_to_Fourth_Power =Ini%Read_Logical('PMF_amplitude_to_fourth',.false.)
+   vectorPMF_B1Mpc = Ini%Read_Double('PMF_vector_B1Mpc',-1._mcp)
+   tensorPMF_B1Mpc = Ini%Read_Double('PMF_tensor_B1Mpc',-1._mcp)
+   desiredPMF_B1Mpc = Ini%Read_Double('PMF_desired_B1Mpc',-1._mcp)
+   tensorPMF_template_scale=1._mcp
+   vectorPMF_template_scale=1._mcp
+   if (desiredPMF_B1Mpc > 0) then
+      if (vectorPMF_B1Mpc > 0) then
+         vectorPMF_template_scale=(desiredPMF_B1Mpc/vectorPMF_B1Mpc)**4
+      endif
+      if (tensorPMF_B1Mpc > 0) then
+         tensorPMF_template_scale=(desiredPMF_B1Mpc/tensorPMF_B1Mpc)**4
+      endif
+   endif
+   
+   call this%LoadFiducialPMFTemplate(PMFvec_template_file,PMFtens_template_file,vectorPMF_template_scale,tensorPMF_template_scale)
+   
+   
    if (bp_file=='' .or. desc_file=='' .or. window_file=='' .or. cov_file=='' .or. beamerr_file == '') then
       print*,'Missing required sptpol key: received: ',bp_file,desc_file,window_file,cov_file,beamerr_file
       stop
    endif
 
    call this%InitSPTpolBBData(desc_file, bp_file, cov_file, beamerr_file, window_file,blind_r_file,blind_abb_file,r_template_file)
+
  end subroutine SPTpol_BB_ReadIni
+
+ subroutine LoadFiducialPMFTemplate(this,PMFvec_template_file,PMFtens_template_file,vectorPMF_template_scale,tensorPMF_template_scale)
+   class(TSPTpolBBLike) :: this
+   integer L,  status
+   real(mcp) array(4)
+   Type(TTextFile) :: F
+
+   !we don't require these to go to lmax                                                                                                                       
+   !these are files with l*(l+1)Cl/2pi                                                                                                                
+   !for vector and tensor                                                                                                                  
+   ! we want to keep these units as continue - all the 'cls' are really 'dls                                                                           
+   Dls_PMFvector(:)=0
+   Dls_PMFtensor(:)=0
+   !files are in order: TT,  EE, BB, TE 
+   if (feedback > 2)  print*,'PMF template files: ',PMFvec_template_file,PMFtens_template_file,vectorPMF_template_scale,tensorPMF_template_scale
+   if (PMFvec_template_file .ne. '') then 
+      call F%Open(PMFvec_template_file)
+      !first line has a comment  
+      read(F%unit,*, iostat=status)
+      do
+         read(F%unit,*, iostat=status) L , array
+         if (status/=0 .or. L>spt_windows_lmax) exit
+         if (L>=spt_windows_lmin) Dls_PMFvector(L) = array(3)
+      end do
+      call F%Close()
+   endif
+   if (PMFtens_template_file .ne. '') then 
+      call F%Open(PMFtens_template_file)
+      !first line has a comment  
+      read(F%unit,*, iostat=status)
+      do
+         read(F%unit,*, iostat=status) L , array
+         if (status/=0 .or. L>spt_windows_lmax) exit
+         if (L>=spt_windows_lmin) Dls_PMFtensor(L) = array(3)
+      end do
+      call F%Close()
+   endif
+
+    if (feedback > 2) then
+       print*,'pmf tensor template read in at L=300 is:',Dls_PMFtensor(300)
+       print*,'pmf vector template read in at L=300 is:',Dls_PMFvector(300)
+       print*,'pmf scale factors: ',tensorPMF_template_scale,vectorPMF_template_scale
+    endif
+    ! and rescale as needed                                                                                                                                             
+    Dls_PMFtensor = Dls_PMFtensor * tensorPMF_template_scale
+    Dls_PMFtensor = Dls_PMFvector * vectorPMF_template_scale
+
+  end subroutine LoadFiducialPMFTemplate
+
 
  subroutine InitSPTpolBBData(this, desc_file, bp_file, cov_file, beamerr_file, window_file,blind_r_file,blind_abb_file,r_template_file)
    use IniFile
@@ -210,6 +284,8 @@ contains
         cl_to_dl_conversion(spt_windows_lmin:spt_windows_lmax),&
         Dls_galdust(spt_windows_lmin:spt_windows_lmax),&
         Dls_poisson(spt_windows_lmin:spt_windows_lmax),&
+        Dls_PMFtensor(spt_windows_lmin:spt_windows_lmax),&
+        Dls_PMFvector(spt_windows_lmin:spt_windows_lmax),&
         Dls_tensor(spt_windows_lmin:spt_windows_lmax)&
         )
 
@@ -469,7 +545,8 @@ contains
    !DataParams for SPTpol likelihood are: [Abb, Add, Poisson150, Poisson 90x150, Poisson90, MapBcal150, MapBcal90, Beam Factors]
    integer, parameter :: iAbb = 1, iR=2,iConstbb=3, iAdd = iAbb+3, &
         iPoisson90=iAdd+3, iPoisson90x150=iAdd+2,iPoisson150=iAdd+1, &
-        iMapBcal90=iPoisson90+2,iMapBcal150=iPoisson90+1, &
+        iPMFvec = iPoisson90+1,iPMFtens=iPMFvec+1, &
+        iMapBcal90=iPMFtens+2,iMapBcal150=iPMFtens+1, &
         iBeam=iMapBcal90+1
    
    
@@ -492,7 +569,8 @@ contains
    !print*,'BB at 2000',dls(2000)
    !add template for r (faster way to do r-varying chains while fixing LCDM)
    if (feedback > 3) print *, 'CMB (no R) at lcenter:',dls(lcenter(:))
-   dls(spt_windows_lmin:spt_windows_lmax) = dls(spt_windows_lmin:spt_windows_lmax) + DataParams(iR)*dls_tensor
+   dls(spt_windows_lmin:spt_windows_lmax) = dls(spt_windows_lmin:spt_windows_lmax) + DataParams(iR)*dls_tensor + &
+        DataParams(iPMFvec)*Dls_PMFvector +         DataParams(iPMFtens)*Dls_PMFtensor
    
 
 
