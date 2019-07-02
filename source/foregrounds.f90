@@ -339,7 +339,7 @@ contains
    
     cl_radio(:) = params%czero_rg_po/d3000/dBdT(fri,fr0)/dBdT(frj,fr0)*&
          (fri/fr0*frj/fr0)**(params%alpha_rg + &
-         log(fri/fr0*frj/fr0)/2 * params%sigmasq_rg)
+         log(fri/fr0*frj/fr0)/2 * params%sigmasq_rg**2)
 
     if (params%czero_rg_cl .gt. 0) then 
        cl_radio(2:lmax) = cl_radio(2:lmax) + &
