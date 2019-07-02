@@ -149,12 +149,8 @@ ifneq ($(PRECISION),)
 FFLAGS += -D$(PRECISION) -DMATRIX_$(PRECISION)
 endif
 
-<<<<<<< HEAD
-PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o $(OUTPUT_DIR)/CMB_SPTpol_BB_2018.o
+PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o 
 
-=======
-PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_BB_2019.o
->>>>>>> 2588aafbe215e81321efc67ffbd333b01937cd3c
 
 ifneq ($(CLIK_PATH),)
 FFLAGS += -DCLIK
@@ -250,7 +246,6 @@ $(OUTPUT_DIR)/Likelihood_Cosmology.o: $(OUTPUT_DIR)/Calculator_Cosmology.o $(OUT
 $(OUTPUT_DIR)/CMBlikes.o: $(OUTPUT_DIR)/Likelihood_Cosmology.o
 $(OUTPUT_DIR)/CMB_BK_Planck.o: $(OUTPUT_DIR)/CMBlikes.o
 $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o
-$(OUTPUT_DIR)/CMB_SPTpol_BB_2018.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o
 $(OUTPUT_DIR)/CMB.o: $(OUTPUT_DIR)/CMBlikes.o $(PLANCKLIKEFILES)
 $(OUTPUT_DIR)/bbn.o: $(OUTPUT_DIR)/settings.o $(OUTPUT_DIR)/likelihood.o $(OUTPUT_DIR)/Interpolation.o
 $(OUTPUT_DIR)/mpk.o: $(OUTPUT_DIR)/CosmoTheory.o $(OUTPUT_DIR)/Likelihood_Cosmology.o
