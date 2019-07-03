@@ -17,7 +17,7 @@
     ! cov == The cholesky factored bandpower covariance  
     double precision, dimension(:,:),allocatable :: cov, windows, beam_err, cov_w_beam
     integer :: spt_windows_lmin,spt_windows_lmax
-    double precision, dimension(:), allocatable :: cl_to_dl_conversion,dl_th,spec
+    double precision, dimension(:), allocatable :: cl_to_dl_conversion,dl_th,spec,ells
     double precision, dimension(:,:), allocatable :: spt_eff_fr
     double precision, dimension(:), allocatable :: spt_prefactor
     double precision, dimension(5) ::  spt_norm_fr
@@ -26,20 +26,13 @@
     logical :: SuccessfulSPTInitialization
     logical :: normalizeSZ_143GHz
     logical :: CallFGPrior
-    logical :: printDlSPT 
-    logical :: printDlSPTComponents 
     
-    
-    ! The bandpowers, in order:
-    !                 150x150TE, 150x150EE
-    ! cov == The cholesky factored bandpower covariance 
-    integer, parameter :: N_BEAM_EXPECTED = 2
-
     logical :: SuccessfulSPTHiellInitialization
     logical :: printDlSPT, printDlSPTComponents
     logical :: plankish
     logical :: CallFGPrioer
     
+    logical :: binaryCov, binaryWindows, binaryBeamErr
     
     !real(mcp) :: meanBeam
     real(mcp) :: meanTcal, sigmaTcal
@@ -63,7 +56,7 @@ contains
   end subroutine setSPTUninitialized
 
 
- subroutine SPTpol_HiEll_ReadIni(this, Ini)
+ subroutine SPT_HiEll_ReadIni(this, Ini)
    use IniFile
    use IniObjects
    implicit none
@@ -117,7 +110,7 @@ contains
    endif
    
    call this%InitSPTHiEllData(desc_file, bp_file, cov_file, beamerr_file, window_folder)
- end subroutine SPTpol_HiEll_ReadIni
+ end subroutine SPT_HiEll_ReadIni
  
  subroutine InitSPTHiEllData(this, desc_file, bp_file, cov_file, beamerr_file, window_folder)
    use IniFile
@@ -131,6 +124,7 @@ contains
    integer*8 :: offset,delta
    integer*4 :: efflmin,efflmax
    real*8 :: arr(2)
+   real*8 rtmp
    Type(TTextFile) :: F
    integer*4 :: errcode
    logical wexist
@@ -180,7 +174,7 @@ contains
 
 
    allocate(this%cl_lmax(CL_T,CL_T), source=0)
-   this%cl_lmax(CL_T,CL_T) = spt_windows_lmax+1
+   this%cl_lmax(CL_T,CL_T) = spt_windows_lmax
 
    if (spt_windows_lmin < 2 .or. spt_windows_lmin >= spt_windows_lmax) then
       call mpistop('Invalid lranges for sptpol')
@@ -197,7 +191,7 @@ contains
    allocate(cov(nall,nall), beam_err(nall,nall),cov_w_beam(nall,nall))
 
    !Define an array with the l*(l+1)/2pi factor to convert to Dl from Cl.
-   do j=spt_windows_lmin-1,spt_windows_lmax+1
+   do j=spt_windows_lmin,spt_windows_lmax
       ells(j) = j
    enddo
    cl_to_dl_conversion(:) = (ells*(ells+1d0))/TWOPI
@@ -299,37 +293,41 @@ contains
 
 
  function SPTHiEllLnLike(this, CMB, Theory, DataParams) 
+   use MpiUtils
    implicit none
+   
    class(TSPTHiEllLike) :: this
    Class(CMBParams) :: CMB
    Class(TCosmoTheoryPredictions), target :: Theory
    double precision :: DataParams(:) 
-   double precision, dimension(spt_windows_lmax+1) :: dl_cmb
+   double precision, dimension(spt_windows_lmax) :: dl_cmb
+   double precision, dimension(spt_windows_lmax,7) :: component_spectra
    double precision :: PriorLnLike
    double precision :: dum
-   double precision :: SPTpolEELnLike
+   double precision :: SPTHiEllLnLike
    double precision, parameter :: d3000 = 3000*3001/TWOPI
    double precision, parameter :: beta = 0.0012309
    double precision, parameter :: dipole_cosine = -0.4033
-   double precision, dimension(1:nall) :: deltacb,tmp2cb,BeamFac
-   double precision, dimension(1:nbin) :: tmpcb
+   double precision, dimension(1:nall) :: deltacb,cbs
+   double precision, dimension(1:maxnbin) :: tmpcb
    double precision, dimension(1) :: junk, detcov
    double precision, dimension(2) :: PoissonLevels 
    double precision, dimension(2) :: ADust
    double precision, dimension(2) :: alphaDust
-   double precision, dimension(3) ::  CalFactors !TT, TE, EE
-   integer :: i,j,k, l,kk
+   double precision, dimension(3) ::  CalFactors !90, 150, 220
+   double precision, dimension(10) ::  comp_arr
+   type(foreground_params) :: foregroundParams
+   integer :: i,j,k, l,kk, thisoffset,thisnbin
    double precision :: norm
    integer fid
    real*4, dimension(2) :: arr
    real*4, dimension(7) :: arr7
    integer*4 :: errcode
-   double precision, dimension(nmc) :: lnl,beamlnl
    integer, dimension(1)::ivec
-   double precision :: minlnl,loclnl
+
 
    double precision, dimension(spt_windows_lmin:spt_windows_lmax) :: dl_fgs
-   integer, parameter :: iFG = 2X
+   integer, parameter :: iFG = 4
 
    ! get CMB spectrum
    call Theory%ClArray(dl_cmb(:),CL_T,CL_T)      
@@ -338,19 +336,19 @@ contains
       write(*,*)'trying to call SPT likelihood w/o initializing foregrounds'
       call mpistop()
    endif
-
-   foregrounds = GetForegroundParamsFromArray(DataParams(iFG:iFG+nForegroundParams))
+   if (iFG .gt. 100) call mpistop() !haven't done it yet
+   CalFactors = DataParams(1:3)
+   foregroundParams = GetForegroundParamsFromArray(DataParams(iFG:iFG+nForegroundParams))
    !add this to use negative for correlation
 
    if (printDlSPT) then
-      call printForegrounds(foregrounds)
-      print*,'a_calib spt:',a_calib
+      call printForegrounds(foregroundParams)
    endif
 
 
    !$OMP PARALLEL DO  DEFAULT(NONE), &
-   !$OMP  SHARED(indices,foregrounds,spt_eff_fr,spt_norm_fr,cl_to_dl_conversion,nbins,nfreq,cmbcls,spt_windows_lmax,spt_windows_lmin,windows,spt_prefactor,a_calib,deltacb,offsets,spec,nband,printDlSPT,printDlSPTComponents,cib_cals), &
-   !$OMP  private(i,j,k,cl_fgs,dl_th,tmpcb,thisnbin,l,thisoffset,fid,arr,component_spectra,comp_arr), &
+   !$OMP  SHARED(cbs,indices,foregroundParams,spt_eff_fr,spt_norm_fr,cl_to_dl_conversion,nbins,nfreq,dl_cmb,spt_windows_lmax,spt_windows_lmin,windows,spt_prefactor,CalFactors,deltacb,offsets,spec,nband,printDlSPT,printDlSPTComponents), &
+   !$OMP  private(i,j,k,dl_fgs,dl_th,tmpcb,thisnbin,l,thisoffset,fid,arr,component_spectra,comp_arr), &
    !$OMP SCHEDULE(STATIC)
    do i=1,nband
       j=indices(1,i)
@@ -361,20 +359,19 @@ contains
 
       !first get theory spectra
       if (printDlSPTComponents) then
-         dl_fgs(2:lmax) = cl_foreground(foregrounds,j,k,nfreq,spt_eff_fr, &
-              spt_norm_fr,cib_cals,component_spectra) * &
-              cl_to_dl_conversion(:)
+         dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr, &
+              spt_norm_fr,component_spectra) 
       else
-         dl_fgs(2:lmax) = cl_foreground(foregrounds,j,k,nfreq,spt_eff_fr, &
-              spt_norm_fr,cib_cals) * &
-              cl_to_dl_conversion(:)
+         dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr, &
+              spt_norm_fr) 
       endif
       !add CMB
-      dl_fgs(2:lmax)=dl_fgs(2:lmax)+dl_cmb(2:lmax,1)
+      dl_fgs(spt_windows_lmin:spt_windows_lmax)=dl_fgs(spt_windows_lmin:spt_windows_lmax)+dl_cmb(spt_windows_lmin:spt_windows_lmax)
+      
 
 
       if (printDlSPT) then
-         fid=33+omp_get_thread_num()
+         fid=33+GetMpiRank()
          call OpenWriteBinaryFile(trim(numcat('suxp_spt_',i)),fid,4_8 * 2)
          do l=spt_windows_lmin,spt_windows_lmax
             arr(1)=l
@@ -384,7 +381,7 @@ contains
          close(fid)
       endif
       if (printDlSPTComponents) then
-         fid=33+omp_get_thread_num()
+         fid=33+GetMpiRank()
          call OpenWriteBinaryFile(trim(numcat('suxp_spt_components_',i)),fid,4_8 * 10)
          do l=spt_windows_lmin,spt_windows_lmax
             comp_arr(1)=l
@@ -409,7 +406,7 @@ contains
            dl_th,1,0.0d0,tmpcb,1)
 
       !apply prefactors
-      tmpcb(:) = tmpcb(:) * spt_prefactor(k)*spt_prefactor(j)*a_calib(j)*a_calib(k)
+      tmpcb = tmpcb * spt_prefactor(k)*spt_prefactor(j)*CalFactors(j)*CalFactors(k)
       if (printDlSPT) then
          open(fid,file=trim(numcat('est_bandpowers_spt_',i)))
          write(fid,*)'# ',j,k
@@ -435,7 +432,7 @@ contains
    SPTHiEllLnLike =  Matrix_GaussianLogLikeDouble(cov_w_beam, deltacb)
    
    if (CallFGPrior) then
-      SPTHiEllLnLike = SPTHiEllLnLike + getForegroundPriorLnL(foregrounds)
+      SPTHiEllLnLike = SPTHiEllLnLike + getForegroundPriorLnL(foregroundParams)
    endif
 
 
@@ -445,25 +442,5 @@ contains
       print *, 'SPTHiEllLike chisq (after priors) = ', 2*(SPTHiEllLnLike-detcov)
    endif
  end function SPTHiEllLnLike
-
- subroutine OpenReadBinaryFile(aname,aunit,record_length)
-   character(LEN=*), intent(IN) :: aname
-   integer, intent(in) :: aunit
-   integer*8,intent(in) :: record_length
-   open(unit=aunit,file=aname,form='unformatted',access='direct',recl=record_length,  err=500)
-   return
-
-500 call MpiStop('File not found: '//trim(aname))
- end subroutine openReadBinaryFile
-
- subroutine OpenWriteBinaryFile(aname,aunit,record_length)
-   character(LEN=*), intent(IN) :: aname
-   integer, intent(in) :: aunit
-   integer*8,intent(in) :: record_length
-   open(unit=aunit,file=aname,form='unformatted',status='replace',access='direct',recl=record_length, err=500)
-   return
-
-500 call MpiStop('File not able to be written to: '//trim(aname))
- end subroutine OpenWriteBinaryFile
 
 end module CMB_SPT_hiell_2019
