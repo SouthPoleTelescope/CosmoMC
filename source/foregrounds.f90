@@ -7,14 +7,14 @@ module foregrounds
 
   private 
 
-  public :: foreground_params, utindex, InitForegroundData, cl_foreground, &
+  public :: foreground_params, utindex, InitForegroundData, dl_foreground, &
        GetForegroundParamsFromArray, GetAlphaPrior, GetCirrusFactor, &
        GetRadioAmpUncPrior, GetRadioAmpPrior, InitRadioAmpPrior, &
        GetRadioClAmpUncPrior, GetRadioClAmpPrior, InitRadioClAmpPrior, &
-       cl_cib_foreground,cosmo_scale_ksz,cosmo_scale_tsz,index_tsz,index_ksz, &
+       dl_cib_foreground,cosmo_scale_ksz,cosmo_scale_tsz,index_tsz,index_ksz, &
        index_dg_po,index_dg_cl,index_cirrus,index_rg_po, &
        HaveForegroundsBeenInitialized,setForegroundsUninitialized,Bnu,&
-       read_dl_template,read_cl_template,nForegroundParams,&
+       read_dl_template,read_dl_template,nForegroundParams,&
        getForegroundPriorLnL,InitFGModel,printForegrounds,&
        OpenReadBinaryFile,OpenWriteBinaryFile,OpenReadBinaryStreamFile,calFactorsToCIB,MaxNFreq
   
@@ -26,7 +26,7 @@ module foregrounds
   integer, dimension(NDecorrel,NDecorrel) :: dmatrix_index
   logical :: cosmological_scaling_ksz
   logical :: cosmological_scaling_tsz,ApplyCirrusPrior90,ApplyCirrusPrior150,ApplyCirrusPrior220
-  logical :: single_clustered_freq_scaling, combine_spire_for_tszcib_correlation 
+  logical :: single_clustered_freq_scaling
   logical :: only1HaloTszCib, CIB_decorrelation_matrix
   logical :: tSZ_CIB_logFreq
   logical :: ShangModelCorrelationShape,applyCIBCalToCirrus,calFactorsToCIB
@@ -39,76 +39,59 @@ module foregrounds
        index_rg_po = index_cirrus + ncirrus
   type foreground_params
      !all czero's are D_3000 for that signal
-     real(mcp) czero_tsz
-     real(mcp) czero_ksz
-     real(mcp) czero_ksz2
-     real(mcp) czero_dg_po
-     real(mcp) czero_dg_po_spire
-     real(mcp) czero_dg_cl
-     real(mcp) czero_dg_cl2
-     real(mcp) czero_dg_cl_spire
-     real(mcp) czero_dg_cl2_spire
-     real(mcp) czero_cirrus
-     real(mcp) czero_rg_po
-     real(mcp) czero_rg_cl
+     double precision czero_tsz
+     double precision czero_ksz
+     double precision czero_ksz2
+     double precision czero_dg_po
+     double precision czero_dg_cl
+     double precision czero_dg_cl2
+     double precision czero_cirrus
+     double precision czero_rg_po
+     double precision czero_rg_cl
 
-     real(mcp) T_dg_po
-     real(mcp) beta_dg_po
-     real(mcp) sigmasq_dg_po
-     real(mcp) T_spire
-     real(mcp) beta_spire
-     real(mcp) sigmasq_spire
+     double precision T_dg_po
+     double precision beta_dg_po
+     double precision sigmasq_dg_po
 
-     real(mcp) T_dg_cl
-     real(mcp) beta_dg_cl
-     real(mcp) sigmasq_dg_cl
+     double precision T_dg_cl
+     double precision beta_dg_cl
+     double precision sigmasq_dg_cl
 
-     real(mcp) T_dg_cl2
-     real(mcp) beta_dg_cl2
-     real(mcp) sigmasq_dg_cl2
+     double precision T_dg_cl2
+     double precision beta_dg_cl2
+     double precision sigmasq_dg_cl2
 
-     real(mcp) alpha_rg
-     real(mcp) sigmasq_rg
+     double precision alpha_rg
+     double precision sigmasq_rg
 
-     real(mcp) T_cirrus
-     real(mcp) beta_cirrus
+     double precision T_cirrus
+     double precision beta_cirrus
      
-     real(mcp) tsz_dg_cor_const
-     real(mcp) tsz_dg_cor_lin_1e4
-     real(mcp) tsz_dg_cor_quad_1e7
+     double precision tsz_dg_cor
+     double precision tsz_rg_cor
 
-     real(mcp) tsz_spire_cor_const
-     real(mcp) tsz_spire_cor_lin_1e4
+     double precision dg_dl_ell_power
 
-     real(mcp) tsz_rg_cor
-     real(mcp) dg_cl_ell_power
-     real(mcp) cib_upturn_100ghz
-
-     real(mcp) ksz_slope
-     real(mcp) tsz_cib_slope
-
-     real(mcp) decorrel_slope
-     real(mcp) decorrel_matrix(NDecorrel)
-
+     double precision tsz_cib_slope
 
   end type foreground_params
 
-  real(mcp), parameter :: d3000 = 3000*3001/(2*pi)
+  double precision, parameter :: d3000 = 3000*3001/(2*pi)
 
   ! Kinetic and thermal SZ effect templates
-  real(mcp), dimension(2:lmax) :: ksz_templ, tsz_templ, ksz2_templ
-  real(mcp), dimension(2:lmax) :: clust_dg_templ,clust2_dg_templ
-  real(mcp), dimension(2:lmax) :: cirrus_templ
-  real(mcp), dimension(2:lmax) :: clust_rg_templ
-  real(mcp), dimension(2:lmax) :: l_divide_3000
+  double precision, dimension(2:lmax) :: ksz_templ, tsz_templ, ksz2_templ
+  double precision, dimension(2:lmax) :: clust_dg_templ,clust2_dg_templ
+  double precision, dimension(2:lmax) :: cirrus_templ
+  double precision, dimension(2:lmax) :: clust_rg_templ
+  double precision, dimension(2:lmax) :: l_divide_3000
 
-  real(mcp),dimension(2:lmax) :: cls_diff
+!  double precision,dimension(2:lmax) :: cls_diff
   
   logical :: SuccessfulInitialization 
   
-  real(mcp) DelAlphaPrior,CirrusFactorPrior,AddAlphaPoisson,AddAlphaSpire
-  real(mcp) radio_amp,radio_unc,radio_cl_amp,radio_cl_unc
-  real(mcp) HFIPoissonScale
+  double precision DelAlphaPrior,CirrusFactorPrior,AddAlphaPoisson
+  double precision radio_amp,radio_unc,radio_dl_amp,radio_dl_unc
+  double precision HFIPoissonScale
 contains
   subroutine printForegrounds(fgs)
     type(foreground_params),intent(in):: fgs
@@ -118,11 +101,8 @@ contains
 
      print*,'czero_ksz2',fgs%czero_ksz2
      print*,'czero_dg_po',fgs%czero_dg_po
-     print*,'czero_dg_po_spire',fgs%czero_dg_po_spire
      print*,'czero_dg_cl',fgs%czero_dg_cl
      print*,'czero_dg_cl2',fgs%czero_dg_cl2
-     print*,'czero_dg_cl_spire',fgs%czero_dg_cl_spire
-     print*,'czero_dg_cl2_spire',fgs%czero_dg_cl2_spire
      print*,'czero_cirrus',fgs%czero_cirrus
      print*,'czero_rg_po',fgs%czero_rg_po
      print*,'czero_rg_cl',fgs%czero_rg_cl
@@ -130,9 +110,6 @@ contains
      print*,'T_dg_po',fgs%T_dg_po
      print*,'beta_dg_po',fgs%beta_dg_po
      print*,'sigmasq_dg_po',fgs%sigmasq_dg_po
-     print*,'T_spire',fgs%T_spire
-     print*,'beta_spire',fgs%beta_spire
-     print*,'sigmasq_spire',fgs%sigmasq_spire
      print*,'T_dg_cl',fgs%T_dg_cl
      print*,'beta_dg_cl',fgs%beta_dg_cl
      print*,'sigmasq_dg_cl',fgs%sigmasq_dg_cl
@@ -144,19 +121,11 @@ contains
      print*,'T_cirrus',fgs%T_cirrus
      print*,'beta_cirrus',fgs%beta_cirrus
 
-     print*,'tsz_dg_cor_const',fgs%tsz_dg_cor_const
-     print*,'tsz_dg_cor_lin_1e4',fgs%tsz_dg_cor_lin_1e4
-     print*,'tsz_dg_cor_quad_1e7',fgs%tsz_dg_cor_quad_1e7
-     print*,'tsz_spire_cor_const',fgs%tsz_spire_cor_const
-     print*,'tsz_spire_cor_lin_1e4',fgs%tsz_spire_cor_lin_1e4
+     print*,'tsz_dg_cor_const',fgs%tsz_dg_cor
      print*,'tsz_rg_cor',fgs%tsz_rg_cor
-     print*,'dg_cl_ell_power',fgs%dg_cl_ell_power
-     print*,'cib_upturn_100ghz',fgs%cib_upturn_100ghz
-     print*,'ksz slope', fgs%ksz_slope
+     print*,'dg_dl_ell_power',fgs%dg_dl_ell_power
      print*,'tsz cib slope', fgs%tsz_cib_slope
 
-     print*,'cib decorrelation slope',fgs%decorrel_slope
-     print*,'cib decor matrix:',fgs%decorrel_matrix
   end subroutine printForegrounds
 
   subroutine setForegroundsUninitialized()
@@ -167,194 +136,125 @@ contains
     HaveForegroundsBeenInitialized = SuccessfulInitialization
   end function HaveForegroundsBeenInitialized
 
-  !
-  ! Returns in cl_arr the matrix
-  !       (TT, TE, TB)
-  !       (ET, EE, EB)
-  !       (BT, BE, BB)
-  !
-  ! corresponding to the point source cross/auto power spectrums
-  ! at the given frequency and at one single l-value
-  !
-  ! the logical array which turns on/off different componenets. the order is
-  !   (dutsy clustered, dusty poisson, radio poisson, ksz, tsz)
-  !
-  ! the array bytype returns the TT components in that same order
-  !
-  function cl_foreground(params,ifr,jfr,nfr,eff_fr,norm_fr,cib_cals,component_spectra)
+
+  !returns Dl = l*(l+1)/2pi*Cl for foregrounds
+  function dl_foreground(params,ifr,jfr,nfr,eff_fr,norm_fr,component_spectra)
     type(foreground_params) :: params
     integer :: i,ifr,jfr,nfr
-    real(mcp), dimension(5,nfr) :: eff_fr
-    real(mcp), dimension(nfr) :: cib_cals
-    real(mcp), dimension(5) :: norm_fr
-    real(mcp),dimension(2:lmax) :: cl_foreground
-    real(mcp) :: fri,frj,norm,fr0,frqdep
-    real(mcp),dimension(2:lmax) :: cl_dg_po, cl_dg_cl, cl_rg_po, cl_k_sz, &
-         cl_t_sz, cl2_cirrus
-    real(mcp),dimension(2:lmax) :: cl_tsz_rg_cor, cl_tsz_dgcl_cor
-    real(mcp),dimension(2:lmax) :: cl_dg, cl_rg,cl_spire
-    real(mcp),dimension(2:lmax) :: cltmpi,cltmpj
-    real(mcp),dimension(2:lmax,7), optional, intent(out) :: component_spectra
-    real(mcp) :: cib_cal_i,cib_cal_j
+    double precision, dimension(5,nfr) :: eff_fr
+    double precision, dimension(5) :: norm_fr
+    double precision,dimension(2:lmax) :: dl_foreground
+    double precision :: fri,frj,norm,fr0,frqdep
+    double precision,dimension(2:lmax) :: dl_dg_po, dl_dg_cl, dl_rg_po, dl_k_sz, &
+         dl_t_sz, dl_cirrus
+    double precision,dimension(2:lmax) :: dl_tsz_rg_cor, dl_tsz_dgdl_cor
+    double precision,dimension(2:lmax) :: dl_dg, dl_rg
+    double precision,dimension(2:lmax) :: dltmpi,dltmpj
+    double precision,dimension(2:lmax,7), optional, intent(out) :: component_spectra
 
-    cib_cal_i = cib_cals(ifr)
-    cib_cal_j = cib_cals(jfr)
-
-    cl_dg_cl(:) = (cib_cal_i*cib_cal_j)*cl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,jfr),norm_fr(1),ifr,jfr)
-    cl_dg_po(:) = (cib_cal_i*cib_cal_j)*cl_dusty_poisson(params,eff_fr(2,ifr),eff_fr(2,jfr),norm_fr(2),ifr,jfr)
-    cl_rg_po(:) = cl_radio(params,eff_fr(3,ifr),eff_fr(3,jfr),norm_fr(3))
-    cl_k_sz(:) = cl_ksz(params)
-    cl_t_sz(:) = cl_tsz(params,eff_fr(5,ifr),eff_fr(5,jfr),norm_fr(5))
-    cl_spire(:) = (cib_cal_i*cib_cal_j)*cl_dusty_spire(params,eff_fr(2,ifr),eff_fr(2,jfr))
+    dl_dg_cl(:) = dl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,jfr),norm_fr(1),ifr,jfr)
+    dl_dg_po(:) = dl_dusty_poisson(params,eff_fr(2,ifr),eff_fr(2,jfr),norm_fr(2),ifr,jfr)
+    dl_rg_po(:) = dl_radio(params,eff_fr(3,ifr),eff_fr(3,jfr),norm_fr(3))
+    dl_k_sz(:) = dl_ksz(params)
+    dl_t_sz(:) = dl_tsz(params,eff_fr(5,ifr),eff_fr(5,jfr),norm_fr(5))
     !TSZ-Dusty correlation
 
-     if (combine_spire_for_tszcib_correlation) then 
-        if (only1HaloTszCib) then
-           cltmpi = cl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1),ifr,jfr,.true.) + &
-                cl_dusty_clustered1_spire(params,eff_fr(2,ifr),eff_fr(2,ifr))
-           cltmpj = cl_dusty_clustered(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1),ifr,jfr,.true.) + &
-                cl_dusty_clustered1_spire(params,eff_fr(2,jfr),eff_fr(2,jfr))
-        else
-           cltmpi = cl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1),ifr,jfr) + &
-                cl_dusty_poisson(params,eff_fr(2,ifr),eff_fr(2,ifr),norm_fr(2),ifr,jfr) + &
-                cl_dusty_spire(params,eff_fr(2,ifr),eff_fr(2,ifr))
-           cltmpj = cl_dusty_clustered(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1),ifr,jfr) + &
-                cl_dusty_poisson(params,eff_fr(2,jfr),eff_fr(2,jfr),norm_fr(2),ifr,jfr) + &
-                cl_dusty_spire(params,eff_fr(2,jfr),eff_fr(2,jfr))
-        end if
-        cltmpi = cltmpi*(cib_cal_i*cib_cal_i)
-        cltmpj = cltmpj*(cib_cal_j*cib_cal_j)
-
-       cl_tsz_dgcl_cor(:) = tsz_dgcl_cor(params) * &
-            ( tsz_cib(params,eff_fr(2,jfr)) * sqrt( cl_tsz(params,eff_fr(5,ifr),eff_fr(5,ifr),norm_fr(5)) * cltmpj) + &
-            tsz_cib(params,eff_fr(2,ifr)) * sqrt( cl_tsz(params,eff_fr(5,jfr),eff_fr(5,jfr),norm_fr(5)) * cltmpi))
+    if (only1HaloTszCib) then
+       dltmpi = dl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1),ifr,jfr,.true.) 
+       dltmpj = dl_dusty_clustered(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1),ifr,jfr,.true.) 
     else
-       if (only1HaloTszCib) then
-          cltmpi = cl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1),ifr,jfr,.true.) 
-          cltmpj = cl_dusty_clustered(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1),ifr,jfr,.true.) 
-       else
-          cltmpi = cl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1),ifr,jfr) + &
-               cl_dusty_poisson(params,eff_fr(2,ifr),eff_fr(2,ifr),norm_fr(2),ifr,jfr) 
-          cltmpj = cl_dusty_clustered(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1),ifr,jfr) + &
-               cl_dusty_poisson(params,eff_fr(2,jfr),eff_fr(2,jfr),norm_fr(2),ifr,jfr) 
-       endif
-       cltmpi = cltmpi*(cib_cal_i*cib_cal_i)
-       cltmpj = cltmpj*(cib_cal_j*cib_cal_j)
-       cl_tsz_dgcl_cor(:) = tsz_dgcl_cor(params) * &
-            ( tsz_cib(params,eff_fr(2,jfr)) * sqrt( cl_tsz(params,eff_fr(5,ifr),eff_fr(5,ifr),norm_fr(5)) * cltmpj) + &
-            tsz_cib(params,eff_fr(2,ifr)) * sqrt( cl_tsz(params,eff_fr(5,jfr),eff_fr(5,jfr),norm_fr(5)) * cltmpi))
-       
-       !will be zero so skip if one not positive
-       if (eff_fr(2,ifr) > 400 .or. eff_fr(2,jfr) > 400.0) then
-          if (only1HaloTszCib) then
-             cltmpi = cl_dusty_clustered1_spire(params,eff_fr(2,ifr),eff_fr(2,ifr))
-             cltmpj = cl_dusty_clustered1_spire(params,eff_fr(2,jfr),eff_fr(2,jfr))
-          else
-             cltmpi = cl_dusty_spire(params,eff_fr(2,ifr),eff_fr(2,ifr))
-             cltmpj = cl_dusty_spire(params,eff_fr(2,jfr),eff_fr(2,jfr))
-          endif
-          cltmpi = cltmpi*(cib_cal_i*cib_cal_i)
-          cltmpj = cltmpj*(cib_cal_j*cib_cal_j)
-          cl_tsz_dgcl_cor(:) = cl_tsz_dgcl_cor(:) + tsz_dgcl_cor(params) * &
-               ( tsz_cib_spire(params,eff_fr(2,jfr)) * sqrt( cl_tsz(params,eff_fr(5,ifr),eff_fr(5,ifr),norm_fr(5)) * cltmpj) + &
-               tsz_cib_spire(params,eff_fr(2,ifr)) * sqrt( cl_tsz(params,eff_fr(5,jfr),eff_fr(5,jfr),norm_fr(5)) * cltmpi))
-       endif
+       dltmpi = dl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1),ifr,jfr) + &
+            dl_dusty_poisson(params,eff_fr(2,ifr),eff_fr(2,ifr),norm_fr(2),ifr,jfr) 
+       dltmpj = dl_dusty_clustered(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1),ifr,jfr) + &
+            dl_dusty_poisson(params,eff_fr(2,jfr),eff_fr(2,jfr),norm_fr(2),ifr,jfr) 
     endif
-
+    dltmpi = dltmpi*(cib_cal_i*cib_cal_i)
+    dltmpj = dltmpj*(cib_cal_j*cib_cal_j)
+    dl_tsz_dgcl_cor(:) = -1 * tsz_dgcl_cor(params) * &
+         ( tsz_cib(params,eff_fr(2,jfr)) * sqrt( dl_tsz(params,eff_fr(5,ifr),eff_fr(5,ifr),norm_fr(5)) * dltmpj) + &
+         tsz_cib(params,eff_fr(2,ifr)) * sqrt( dl_tsz(params,eff_fr(5,jfr),eff_fr(5,jfr),norm_fr(5)) * dltmpi))
+    
 
     !TSZ-Radio correlation
     if (params%tsz_rg_cor .eq. 0) then
-       cl_tsz_rg_cor(:) = 0.0
+       dl_tsz_rg_cor(:) = 0.0
     else
-       cl_tsz_rg_cor(:) = params%tsz_rg_cor * tsz_rg_cor() * ( &
-            sqrt(cl_tsz(params,eff_fr(5,ifr),eff_fr(5,ifr),norm_fr(5)) * &
-            cl_radio(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1))) &
-            + sqrt(cl_tsz(params,eff_fr(5,jfr),eff_fr(5,jfr),norm_fr(5)) * &
-            cl_radio(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1))) )
+       dl_tsz_rg_cor(:) = -1 * params%tsz_rg_cor * tsz_rg_cor() * ( &
+            sqrt(dl_tsz(params,eff_fr(5,ifr),eff_fr(5,ifr),norm_fr(5)) * &
+            dl_radio(params,eff_fr(1,jfr),eff_fr(1,jfr),norm_fr(1))) &
+            + sqrt(dl_tsz(params,eff_fr(5,jfr),eff_fr(5,jfr),norm_fr(5)) * &
+            dl_radio(params,eff_fr(1,ifr),eff_fr(1,ifr),norm_fr(1))) )
     endif
     
-    norm = 1. /(d3000*cirrus_templ(3000))
-    cl2_cirrus = cl_cirrus(params,eff_fr(1,ifr),eff_fr(1,jfr))
-
-    if (applyCIBCalToCirrus) &
-         cl2_cirrus = cl2_cirrus(:) * (cib_cal_i*cib_cal_j)
+    dl_cirrus = dl_cirrus(params,eff_fr(1,ifr),eff_fr(1,jfr))
     
-    cl_dg = cl_dg_po + cl_dg_cl
-    cl_rg = cl_rg_po
+    dl_dg = dl_dg_po + dl_dg_cl
+    dl_rg = dl_rg_po
     
     if (present(component_spectra)) then 
 
-       component_spectra(:,1) = cl_dg_po
-       component_spectra(:,2) = cl_dg_cl
-       component_spectra(:,3) = cl_k_sz
-       component_spectra(:,4) = cl_t_sz
-       component_spectra(:,5) = cl_rg
-       component_spectra(:,6) = cl_tsz_dgcl_cor
-       component_spectra(:,7) = cl2_cirrus + cl_tsz_rg_cor + cl_spire
+       component_spectra(:,1) = dl_dg_po
+       component_spectra(:,2) = dl_dg_cl
+       component_spectra(:,3) = dl_k_sz
+       component_spectra(:,4) = dl_t_sz
+       component_spectra(:,5) = dl_rg
+       component_spectra(:,6) = dl_tsz_dgcl_cor
+       component_spectra(:,7) = dl_cirrus + dl_tsz_rg_cor 
     endif
 
-    cl_foreground = cl_dg + cl_rg + cl_t_sz + cl_k_sz + cl2_cirrus + cl_tsz_dgcl_cor + cl_tsz_rg_cor + cl_spire
-  end function cl_foreground
+    dl_foreground = dl_dg + dl_rg + dl_t_sz + dl_k_sz + dl_cirrus + dl_tsz_dgcl_cor + dl_tsz_rg_cor 
+  end function dl_foreground
 
   function tsz_cib(params,freq)
-    real(mcp) tsz_cib
+    double precision tsz_cib
     type(foreground_params) :: params
-    real(mcp) :: freq
-    if (tSZ_CIB_logFreq) then 
-              tsz_cib =  params%tsz_dg_cor_const + params%tsz_dg_cor_lin_1e4*1d-4 * log(freq) + params%tsz_dg_cor_quad_1e7*1d-7 * log(freq)**2
-    else
-       tsz_cib =  params%tsz_dg_cor_const + params%tsz_dg_cor_lin_1e4*1d-4 * freq + params%tsz_dg_cor_quad_1e7*1d-7 * freq * freq
+    double precision :: freq
+    tsz_cib =  params%tsz_dg_cor
     endif
   end function tsz_cib
 
-  function tsz_cib_spire(params,freq)
-    real(mcp) :: tsz_cib_spire
-    type(foreground_params) :: params
-    real(mcp) :: freq
-    
-    tsz_cib_spire= params%tsz_spire_cor_const + params%tsz_spire_cor_lin_1e4*1d-4 * freq 
-  end function tsz_cib_spire
 
-  function cl_cib_foreground(params,eff_fr,norm_fr,ifr,jfr)
+
+  function dl_cib_foreground(params,eff_fr,norm_fr,ifr,jfr)
     type(foreground_params) :: params
     integer,intent(in) :: ifr,jfr
-    real(mcp) :: eff_fr
-    real(mcp) :: norm_fr
-    real(mcp),dimension(2:lmax) :: cl_cib_foreground
-    real(mcp),dimension(2:lmax) :: cl_dg_po, cl_dg_cl,cl_dg_spire
+    double precision :: eff_fr
+    double precision :: norm_fr
+    double precision,dimension(2:lmax) :: dl_cib_foreground
+    double precision,dimension(2:lmax) :: dl_dg_po, dl_dg_cl
     
-    cl_dg_cl = cl_dusty_clustered(params,eff_fr,eff_fr,norm_fr,ifr,jfr)
-    cl_dg_po = cl_dusty_poisson(params,eff_fr,eff_fr,norm_fr,ifr,jfr)
-    cl_dg_spire = cl_dusty_spire(params,eff_fr,eff_fr)
+    dl_dg_cl = dl_dusty_clustered(params,eff_fr,eff_fr,norm_fr,ifr,jfr)
+    dl_dg_po = dl_dusty_poisson(params,eff_fr,eff_fr,norm_fr,ifr,jfr)
     
-    cl_cib_foreground = cl_dg_po + cl_dg_cl + cl_dg_spire
+    dl_cib_foreground = dl_dg_po + dl_dg_cl 
 
-  end function cl_cib_foreground
+  end function dl_cib_foreground
   
-
-  function cl_radio(params,fri,frj,fr0)
-    real(mcp),dimension(2:lmax)  :: cl_radio
+  !updated to Dl & template being normalized
+  function dl_radio(params,fri,frj,fr0)
+    double precision,dimension(2:lmax)  :: dl_radio
     type(foreground_params) :: params
-    real(mcp) :: fri,frj,fr0
+    double precision :: fri,frj,fr0
    
-    cl_radio(:) = params%czero_rg_po/d3000/dBdT(fri,fr0)/dBdT(frj,fr0)*&
+    dl_radio(:) = (params%czero_rg_po/dBdT(fri,fr0)/dBdT(frj,fr0)*&
          (fri/fr0*frj/fr0)**(params%alpha_rg + &
-         log(fri/fr0*frj/fr0)/2 * params%sigmasq_rg**2)
+         log(fri/fr0*frj/fr0)/2 * params%sigmasq_rg**2)) * &
+         l_divide_3000(:)**2
 
     if (params%czero_rg_cl .gt. 0) then 
-       cl_radio(2:lmax) = cl_radio(2:lmax) + &
-            params%czero_rg_cl/d3000/dBdT(fri,fr0)/&
+       dl_radio(2:lmax) = dl_radio(2:lmax) + &
+            ( params%czero_rg_cl/dBdT(fri,fr0) / &
             dBdT(frj,fr0)*&
-            (fri/fr0*frj/fr0)**(params%alpha_rg)*&
+            (fri/fr0*frj/fr0)**(params%alpha_rg) ) * &
             clust_rg_templ(:)
     endif
-  end function cl_radio
+  end function dl_radio
 
   function cirrus_power3000(params,fri,frj)
-    real(mcp)  :: cirrus_power3000
+    double precision  :: cirrus_power3000
     type(foreground_params) :: params
-    real(mcp) :: fri, frj, fr0
-    real(mcp) :: frqdep
+    double precision :: fri, frj, fr0
+    double precision :: frqdep
     
     fr0=220.0
     frqdep = ((fri*frj)/(fr0*fr0))**(params%beta_cirrus)
@@ -365,159 +265,56 @@ contains
     cirrus_power3000 = params%czero_cirrus*frqdep
   end function cirrus_power3000
 
-  function cl_cirrus(params,fri,frj)
-    real(mcp),dimension(2:lmax)  :: cl_cirrus
+  !updated to Dl & template being normalized
+  function dl_cirrus(params,fri,frj)
+    double precision,dimension(2:lmax)  :: dl_cirrus
     type(foreground_params) :: params
-    real(mcp) :: fri, frj, fr0
-    real(mcp) :: power
+    double precision :: fri, frj, fr0
+    double precision :: power
 
     power = cirrus_power3000(params,fri,frj)
     
-    cl_cirrus(:)=(power/(d3000*cirrus_templ(3000))) * cirrus_templ(:)
+    dl_cirrus(:)=power* cirrus_templ(:)
 
-  end function cl_cirrus
+  end function dl_cirrus
 
-  function cl_dusty_clustered1_spire(params,fri,frj)
-    real(mcp),dimension(2:lmax)  :: cl_dusty_clustered1_spire
-    type(foreground_params) :: params
-    real(mcp) :: fri, frj,  fr0spire
-    real(mcp) :: frqdep
-    real(mcp) :: ff
-    real(mcp) :: effalpha,effsigmasq,effalpha_2
-
-    fr0spire=600.
-
-
-    if (fri > 400 .and. frj > 400.0) then
-
-       effalpha = params%T_spire + AddAlphaSpire*params%T_dg_po
-       effsigmasq = params%sigmasq_spire + AddAlphaSpire*params%sigmasq_dg_po
-       effalpha_2 = params%beta_spire + AddAlphaSpire*params%beta_dg_po
-       frqdep = ((fri*frj)/(fr0spire*fr0spire))**( &
-            effalpha_2 + log(fri/fr0spire*frj/fr0spire)/2 * effsigmasq )
-       frqdep = frqdep *&
-            Bnu(fri,fr0spire,effalpha)*Bnu(frj,fr0spire,effalpha)
-
-       frqdep = frqdep * 1.0e6 /d3000/dBdT(fri,fr0spire)/dBdT(frj,fr0spire) 
-
-       if (params%dg_cl_ell_power /= 0) then
-          cl_dusty_clustered1_spire(:) = cl_dusty_clustered1_spire(:) + &
-               frqdep * params%czero_dg_cl_spire * &
-               clust_dg_templ(:)/(clust_dg_templ(3000)) * (l_divide_3000(:))**params%dg_cl_ell_power
-       else
-          cl_dusty_clustered1_spire(:) = cl_dusty_clustered1_spire(:) + &
-               frqdep * params%czero_dg_cl_spire * &
-               clust_dg_templ(:)/(clust_dg_templ(3000)) 
-       endif
-
-    else
-       cl_dusty_clustered1_spire(:)=0
-    endif
-
-  end function cl_dusty_clustered1_spire
-
-  function cl_dusty_spire(params,fri,frj)
-    real(mcp),dimension(2:lmax)  :: cl_dusty_spire
-    type(foreground_params) :: params
-    real(mcp) :: fri, frj,  fr0spire
-    real(mcp) :: frqdep
-    real(mcp) :: ff
-    real(mcp) :: effalpha,effsigmasq,effalpha_2
- 
-    fr0spire=600.
-    cl_dusty_spire(:)=0
-
-    if (fri > 400 .and. frj > 400.0) then
-       
-       effalpha = params%T_spire + AddAlphaSpire*params%T_dg_po
-       effsigmasq = params%sigmasq_spire + AddAlphaSpire*params%sigmasq_dg_po
-       effalpha_2 = params%beta_spire + AddAlphaSpire*params%beta_dg_po
-       frqdep = ((fri*frj)/(fr0spire*fr0spire))**( &
-            effalpha_2 + log(fri/fr0spire*frj/fr0spire)/2 * effsigmasq )
-       frqdep = frqdep *&
-            Bnu(fri,fr0spire,effalpha)*Bnu(frj,fr0spire,effalpha)
-       
-       frqdep = frqdep * 1.0e6 /d3000/dBdT(fri,fr0spire)/dBdT(frj,fr0spire) 
-       
-       cl_dusty_spire(:) =  frqdep * params%czero_dg_po_spire
-       
-       if (params%dg_cl_ell_power /= 0) then
-          cl_dusty_spire(:) = cl_dusty_spire(:) + &
-               frqdep * params%czero_dg_cl_spire * &
-               clust_dg_templ(:)/(clust_dg_templ(3000)) * (l_divide_3000(:))**params%dg_cl_ell_power
-       else
-          cl_dusty_spire(:) = cl_dusty_spire(:) + &
-               frqdep * params%czero_dg_cl_spire * &
-               clust_dg_templ(:)/(clust_dg_templ(3000)) 
-       endif
-
-       if (params%czero_dg_cl2_spire /= 0) then
-          cl_dusty_spire(:) = cl_dusty_spire(:)+ &
-               clust2_dg_templ(:)/(clust2_dg_templ(3000))*params%czero_dg_cl2_spire*frqdep 
-       endif
-       
-    endif
-  end function cl_dusty_spire
-
-  function cl_dusty_poisson(params,fri,frj,fr0,ifr,jfr)
-    real(mcp),dimension(2:lmax)  :: cl_dusty_poisson
+  !turned to Dl and normalized templates
+  function dl_dusty_poisson(params,fri,frj,fr0,ifr,jfr)
+    double precision,dimension(2:lmax)  :: dl_dusty_poisson
     type(foreground_params) :: params
     integer, intent(in) :: ifr,jfr
-    real(mcp) :: fri, frj, fr0, fr0spire
-    real(mcp) :: frqdep
-    real(mcp) :: ff,ff1,ff2,decor
-    real(mcp) :: effalpha,effsigmasq,effalpha_2
+    double precision :: fri, frj, fr0
+    double precision :: frqdep
+    double precision :: ff,ff1,ff2,decor
+    double precision :: effalpha,effsigmasq,effalpha_2
 
     !basic powerlaw
     frqdep = ((fri*frj)/(fr0*fr0))**( params%beta_dg_po)
 
-    if (use_decorrelation_matrix_form) then
-       if (use_sigma) then 
-          ff1=(fri/fr0)
-          !NB: we get a factor of 4x in the exponent because ff1 isn't squared
-          ! we also get a factor of 1/2x because we will want the sqrt.
-          !this is why ff has the /2 since there we do square, and don't want the sqrt
-          ff1=ff1**(params%sigmasq_dg_po  * log(ff1))
-          ff2=(frj/fr0)
-          ff2=ff2**(params%sigmasq_dg_po  * log(ff2))
-          
-          ff = ((fri*frj)/(fr0*fr0))
-          ff = ff ** (params%sigmasq_dg_po /2* log(ff2))
-          decor=ff/(ff1*ff2)
-       else
-          decor = params%decorrel_matrix(dmatrix_index(ifr,jfr))
-       endif
-    else
-       !not <1 like decor in the other case...this boosts the autospectra
-       decor =  ((fri*frj)/(fr0*fr0))**( &
-             log(fri/fr0*frj/fr0)/2 * params%sigmasq_dg_po )
+    !not <1 like decor in the other case...this boosts the autospectra
+    decor =  ((fri*frj)/(fr0*fr0))**( &
+         log(fri/fr0*frj/fr0)/2 * params%sigmasq_dg_po )
 
-    endif
     frqdep = frqdep*decor
        
     frqdep = frqdep *&
          Bnu(fri,fr0,params%T_dg_po)*Bnu(frj,fr0,params%T_dg_po)
     
-    if (fri < 100.) &
-         frqdep = frqdep * params%cib_upturn_100ghz
-    if (frj < 100.) &
-         frqdep = frqdep * params%cib_upturn_100ghz
-        
-    cl_dusty_poisson(:) = params%czero_dg_po/d3000/dBdT(fri,fr0)/dBdT(frj,fr0)*&
-         frqdep
+    dl_dusty_poisson(:) = (params%czero_dg_po/dBdT(fri,fr0)/dBdT(frj,fr0)*frqdep) * &
+         l_divide_3000(:)**2
 
 
-  end function cl_dusty_poisson
+  end function dl_dusty_poisson
 
-  function cl_dusty_clustered(params,fri,frj,fr0,ifr,jfr,only1halo)
+  !turned to Dl and normalized templates
+  function dl_dusty_clustered(params,fri,frj,fr0,ifr,jfr,only1halo)
     integer, intent(in) :: ifr,jfr
-    real(mcp),dimension(2:lmax)  :: cl_dusty_clustered,sloped_decor
+    double precision,dimension(2:lmax)  :: dl_dusty_clustered
     type(foreground_params) :: params
-    real(mcp) :: fri,frj,fr0,frqdep,frqdep0,effalpha_cl, effalpha_cl_2,frqdeplin,effsigmasq_cl
-    real(mcp) :: effalpha,effsigmasq,effalpha_2,decor,ff,ff1,ff2
+    double precision :: fri,frj,fr0,frqdep,frqdep0,effalpha_cl, effalpha_cl_2,frqdeplin,effsigmasq_cl
+    double precision :: effalpha,effsigmasq,effalpha_2,decor,ff,ff1,ff2
     logical, intent(in), optional :: only1halo
-    logical :: Want2Halo, hasslope
-    hasslope=.false.
+    logical :: Want2Halo
 
     if (present(only1halo)) then
         Want2Halo = .not. only1halo
@@ -535,64 +332,21 @@ contains
     
     frqdep = frqdep / dBdT(fri,fr0) / dBdT(frj,fr0)
     
-    if (fri < 100.) &
-         frqdep = frqdep * params%cib_upturn_100ghz
-    if (frj < 100.) &
-         frqdep = frqdep * params%cib_upturn_100ghz
 
-    if (use_decorrelation_matrix_form) then
-       decor = 1_mcp
-       if (ifr /= jfr) then
-          if (use_sigma) then 
-             ff1=(fri/fr0)
-             !NB: we get a factor of 4x in the exponent because ff1 isn't squared
-             ! we also get a factor of 1/2x because we will want the sqrt.
-             !this is why ff has the /2 since there we do square, and don't want the sqrt
-             ff1=ff1**(params%sigmasq_dg_po  * log(ff1))
-             ff2=(frj/fr0)
-             ff2=ff2**(params%sigmasq_dg_po  * log(ff2))
-             
-             ff = ((fri*frj)/(fr0*fr0))
-             ff = ff ** (params%sigmasq_dg_po /2* log(ff2))
-             decor=ff/(ff1*ff2)
-          else
-             decor = params%decorrel_matrix(dmatrix_index(ifr,jfr))
-          endif
-          if (params%decorrel_slope /= 0 ) then
-             sloped_decor(:) = (l_divide_3000(:)-1_mcp)*params%decorrel_slope + decor
-             
-             !limiting range
-             where(sloped_decor<0_mcp) &
-                  sloped_decor = 0_mcp
-             where(sloped_decor>1_mcp) &
-                  sloped_decor = 1_mcp
-             
-             !don't need this since will be set elsewhere
-             hasslope=.true.
-             decor=1_mcp
-          endif
-       endif
-    else
-       !not <1 like decor in the other case...this boosts the autospectra
-       decor =  ((fri*frj)/(fr0*fr0))**( &
-            log(fri/fr0*frj/fr0)/2 * effsigmasq_cl )
-    endif
+    !not <1 like decor in the other case...this boosts the autospectra
+    decor =  ((fri*frj)/(fr0*fr0))**( &
+         log(fri/fr0*frj/fr0)/2 * effsigmasq_cl )
+
     frqdep = frqdep*decor
 
 
-    cl_dusty_clustered(:) = clust_dg_templ(:) * (params%czero_dg_cl*frqdep/(d3000*clust_dg_templ(3000)))
-    if (params%dg_cl_ell_power /= 0) &
-         cl_dusty_clustered(:) =  cl_dusty_clustered(:) * (l_divide_3000(:))**params%dg_cl_ell_power
-    if(hasslope) &
-         cl_dusty_clustered(:) =  cl_dusty_clustered(:) * sloped_decor(:)
+    dl_dusty_clustered(:) = clust_dg_templ(:) * (params%czero_dg_cl*frqdep)
+    if (params%dg_dl_ell_power /= 0) &
+         dl_dusty_clustered(:) =  dl_dusty_clustered(:) * (l_divide_3000(:))**params%dg_dl_ell_power
     
     if (Want2Halo .and. params%czero_dg_cl2 /= 0) then
        if (single_clustered_freq_scaling ) then 
-          if (hasslope) then
-             cl_dusty_clustered(:) = cl_dusty_clustered(:)+ clust2_dg_templ(:)/(d3000*clust2_dg_templ(3000))*params%czero_dg_cl2*frqdep * sloped_decor(:)
-          else
-             cl_dusty_clustered(:) = cl_dusty_clustered(:)+ clust2_dg_templ(:)/(d3000*clust2_dg_templ(3000))*params%czero_dg_cl2*frqdep 
-          endif
+          dl_dusty_clustered(:) = dl_dusty_clustered(:)+ clust2_dg_templ(:)*params%czero_dg_cl2*frqdep 
        else
           effalpha_cl = params%T_dg_cl2 + AddAlphaPoisson*params%T_dg_po
           effsigmasq_cl = params%sigmasq_dg_cl2 + AddAlphaPoisson*params%sigmasq_dg_po
@@ -600,70 +354,34 @@ contains
           frqdep = ((fri*frj)/(fr0*fr0))**(effalpha_cl_2)
           frqdep = frqdep *&
                Bnu(fri,fr0,effalpha_cl)*Bnu(frj,fr0,effalpha_cl)
-          
           frqdep = frqdep / dBdT(fri,fr0) / dBdT(frj,fr0)
-          
-          if (fri < 100.) &
-               frqdep = frqdep * params%cib_upturn_100ghz
-          if (frj < 100.) &
-               frqdep = frqdep * params%cib_upturn_100ghz
-
-          !if the below isn't true, reuse values for decor, sloped_decor
-          if (use_decorrelation_matrix_form .and. use_sigma .and. (ifr /= jfr)) then
-             ff1=(fri/fr0)
-             !NB: we get a factor of 4x in the exponent because ff1 isn't squared
-             ! we also get a factor of 1/2x because we will want the sqrt.
-             !this is why ff has the /2 since there we do square, and don't want the sqrt
-             ff1=ff1**(params%sigmasq_dg_po  * log(ff1))
-             ff2=(frj/fr0)
-             ff2=ff2**(params%sigmasq_dg_po  * log(ff2))
-             
-             ff = ((fri*frj)/(fr0*fr0))
-             ff = ff ** (params%sigmasq_dg_po /2* log(ff2))
-             decor=ff/(ff1*ff2)
-             
-             if (params%decorrel_slope /= 0 ) then
-                sloped_decor(:) = (l_divide_3000(:)-1_mcp)*params%decorrel_slope + decor
-                
-                !limiting range
-                where(sloped_decor<0_mcp) &
-                     sloped_decor = 0_mcp
-                where(sloped_decor>1_mcp) &
-                     sloped_decor = 1_mcp
-                
-                !don't need this since will be set elsewhere
-                hasslope=.true.
-                decor=1_mcp
-             endif
-          endif
+          decor =  ((fri*frj)/(fr0*fr0))**( &
+               log(fri/fr0*frj/fr0)/2 * effsigmasq_cl )
           frqdep = frqdep*decor
           
-          if (hasslope) then
-             cl_dusty_clustered(:) = cl_dusty_clustered(:)+ clust2_dg_templ(:)/(d3000*clust2_dg_templ(3000))*params%czero_dg_cl2*frqdep * sloped_decor(:)
-          else
-             cl_dusty_clustered(:) = cl_dusty_clustered(:)+ clust2_dg_templ(:)/(d3000*clust2_dg_templ(3000))*params%czero_dg_cl2*frqdep 
-          endif
+          dl_dusty_clustered(:) = dl_dusty_clustered(:)+ clust2_dg_templ(:)*(params%czero_dg_cl2*frqdep )
+          
        endif
        
     endif
-  end function cl_dusty_clustered
+  end function dl_dusty_clustered
 
-
-  function cl_tsz(params,fri,frj,fr0)
-    real(mcp),dimension(2:lmax) :: cl_tsz
+!updated to Dl & template being normalized
+  function dl_tsz(params,fri,frj,fr0)
+    double precision,dimension(2:lmax) :: dl_tsz
     type(foreground_params) :: params
-    real(mcp) :: fri,frj,fr0
+    double precision :: fri,frj,fr0
 
-    cl_tsz(:) = (params%czero_tsz /(d3000*tsz_templ(3000))  * tszFreqDep(fri,fr0) * tszFreqDep(frj,fr0) ) * tsz_templ(:)
+    dl_tsz(:) = (params%czero_tsz * tszFreqDep(fri,fr0) * tszFreqDep(frj,fr0) ) * tsz_templ(:)
 
-  end function cl_tsz
+  end function dl_tsz
 
 
 !based on Laurie's email and templates!
 !apply cosmological scaling
   function cosmo_scale_ksz(H0,sigma8,omegab,omegam,ns,tau)
-    real(mcp) :: H0,sigma8,omegab,omegam,ns,tau
-    real(mcp) :: cosmo_scale_ksz
+    double precision :: H0,sigma8,omegab,omegam,ns,tau
+    double precision :: cosmo_scale_ksz
     if (cosmological_scaling_ksz) then
        cosmo_scale_ksz = ((H0/71.0)**1.7 ) &
             * ( (sigma8/.8)**4.7 ) &
@@ -678,8 +396,8 @@ contains
 !based on Laurie's email and templates!
 !apply cosmological scaling
   function cosmo_scale_tsz(H0,sigma8,omegab)
-    real(mcp) :: H0,sigma8,omegab
-    real(mcp) :: cosmo_scale_tsz
+    double precision :: H0,sigma8,omegab
+    double precision :: cosmo_scale_tsz
     if (cosmological_scaling_tsz) then
        cosmo_scale_tsz = ((H0/71.0)**1.73 ) &
             * ( (sigma8/.8)**8.34 ) &
@@ -689,23 +407,16 @@ contains
     endif
   end function cosmo_scale_tsz
 
-
-  function cl_ksz(params)
-    real(mcp),dimension(2:lmax) :: cl_ksz,slope
+  !updated to Dl & template being normalized
+  function dl_ksz(params)
+    double precision,dimension(2:lmax) :: dl_ksz
     type(foreground_params) :: params
 
-    cl_ksz(:) = (params%czero_ksz  / (d3000*ksz_templ(3000))) *ksz_templ(:)
+    dl_ksz(:) = params%czero_ksz *ksz_templ(:)
     if (params%czero_ksz2 /= 0) &
-         cl_ksz(:) = cl_ksz(:) + (params%czero_ksz2  / (d3000*ksz2_templ(3000))) &
-         * ksz2_templ(:)
-    if (params%ksz_slope /= 0) then
-       slope(:) = l_divide_3000(:)*params%ksz_slope
-       slope(:) = slope(:) + (1.0 - slope(3000))
-       where(slope<0_mcp) &
-            slope = 0_mcp
-       cl_ksz(:) = cl_ksz(:) * slope(:)
-    endif
-  end function cl_ksz
+         dl_ksz(:) = dl_ksz(:) + params%czero_ksz2 *ksz2_templ(:)
+
+  end function dl_ksz
 
   function flat_tsz_cor()
     logical flat_tsz_cor
@@ -714,7 +425,7 @@ contains
   
   ! The correlation fraction between tSZ and dusty sources, normalized to 1 at high ell
   function tsz_dgcl_cor(params)
-    real(mcp),dimension(2:lmax) :: tsz_dgcl_cor
+    double precision,dimension(2:lmax) :: tsz_dgcl_cor
     type(foreground_params) :: params
     
     !motivated by shaw analysis of Sehgal sims
@@ -739,7 +450,7 @@ contains
   ! The correlation fraction between tSZ and dusty sources, normalized to 1 at high ell
   function tsz_rg_cor()
 
-    real(mcp) :: tsz_rg_cor
+    double precision :: tsz_rg_cor
 
     tsz_rg_cor = 1.0
 
@@ -753,7 +464,7 @@ contains
   !
   function dBdT(nu,nu0)
 
-    real(mcp) x, x0, dBdT, dBdT0, nu, nu0
+    double precision x, x0, dBdT, dBdT0, nu, nu0
 
     x0 = nu0/56.78
     dBdT0 = x0**4 * exp(x0) / (exp(x0)-1)**2
@@ -765,12 +476,12 @@ contains
   
   !proportional to the Planck function normalized to 1 at nu0
   function Bnu(nu,nu0,T)
-    real(mcp) Bnu, nu,nu0,T
+    double precision Bnu, nu,nu0,T
     !h/k
     !4.799237 × 10-11 s K
     !expect GHz
     ! so 4.799237e-2 K/GHz
-    real(mcp), parameter :: hk = 4.799237e-2
+    double precision, parameter :: hk = 4.799237e-2
     
     Bnu = (nu/nu0)**3
     Bnu = Bnu * (exp( hk*nu0/T)-1d0) / (exp( hk*nu/T)-1d0) 
@@ -786,7 +497,7 @@ contains
   !
   function tszFreqDep(nu,nu0)
 
-    real(mcp) :: tszFreqDep, tszFreqDep0, nu, nu0, x, x0
+    double precision :: tszFreqDep, tszFreqDep0, nu, nu0, x, x0
 
     x = nu / 56.78
     x0 = nu0 / 56.78
@@ -798,11 +509,11 @@ contains
   end function tszFreqDep
   
 !read template in Dl form from file
-!since templates are in Cl's internally, convert to cl 
+!since templates are in Dl's internally, do nothing to it
   function read_dl_template(filename)
     character*(*), intent(in) :: filename
-    real(mcp), dimension(2:lmax) :: read_dl_template
-    real(mcp) :: realtmp
+    double precision, dimension(2:lmax) :: read_dl_template
+    double precision :: realtmp
     integer :: ll 
     read_dl_template(:)=0.0
     if (filename/='') then
@@ -810,25 +521,25 @@ contains
        do
           read(tmp_file_unit,*,end=2) ll, realtmp
           if (ll>=2 .and. ll<=lmax) &
-               read_dl_template(ll) = realtmp*(twopi/((ll+1.0)*ll))
+               read_dl_template(ll) = realtmp
        end do
 2      Close(tmp_file_unit)
     end if
   end function read_dl_template
 
-!read template in Cl form from file
+!read template in Cl form from file, convert to Dl
   function read_cl_template(filename)
     character*(*), intent(in) :: filename
-    real(mcp), dimension(2:lmax) :: read_cl_template
-    real(mcp) :: realtmp
+    double precision, dimension(2:lmax) :: read_cl_template
+    double precision :: realtmp
     integer :: ll
-    read_cl_template(:)=0.0
+    read_dl_template(:)=0.0
     if (filename/='') then
        call OpenTxtFile(filename, tmp_file_unit)
        do
           read(tmp_file_unit,*,end=2) ll, realtmp
           if (ll>=2 .and. ll<=lmax) &
-               read_cl_template(ll) = realtmp
+               read_cl_template(ll) = realtmp * (ll*(ll+1)/2d0/pi)
        end do
 2      Close(tmp_file_unit)
     end if
@@ -840,29 +551,33 @@ contains
   ! foreground_folder with names cluster_*.dat, ksz.dat, and tsz.dat
   !
   subroutine InitForegroundData(fClustered,fClustered2,fKSZ,fKSZ2,fTSZ,&
-       del_alpha,relative_alpha_cluster, relative_alpha_spire)
+       del_alpha,relative_alpha_cluster)
     integer :: l,dum,i
     character(len=120) :: file
     character*(*) :: fClustered,fClustered2, fKSZ, fKSZ2, fTSZ
-    real(mcp) :: del_alpha
-    logical :: relative_alpha_cluster,relative_alpha_spire
+    double precision :: del_alpha
+    logical :: relative_alpha_cluster
     SuccessfulInitialization=.true.
 
     
     ! clustered template
     clust_dg_templ = read_dl_template(fClustered)
-    
     clust2_dg_templ = read_dl_template(fClustered2)
-
+    clust_dg_templ  /=   clust_dg_templ(3000)
+    clust2_dg_templ /=   clust2_dg_templ(3000)   
 
     ! KSZ template
-    ksz_templ = read_dl_template(fKSZ)
+    ksz_templ  = read_dl_template(fKSZ)
+    ksz_templ /= ksz_templ(3000)
+    
     ! 2nd KSZ template
-    ksz2_templ = read_dl_template(fKSZ2)
-
+    ksz2_templ  = read_dl_template(fKSZ2)
+    ksz2_templ /= ksz2_templ(3000)
+    
     ! TSZ template
-    tsz_templ = read_dl_template(fTSZ)
-
+    tsz_templ  = read_dl_template(fTSZ)
+    tsz_templ /= tsz_templ(3000)
+    
     if (MPIRank == 0) then
        print*,'1halo (or all clustered) DG template:',trim(fClustered)
        print*,'2halo (2nd) DG template:',trim(fClustered2)
@@ -878,58 +593,53 @@ contains
        AddAlphaPoisson = 1
     end if
 
-    AddAlphaSpire = 0
-    if (relative_alpha_spire) then
-       AddAlphaSpire = 1
-    end if
-
     do i=2,lmax
        l_divide_3000(i) = real(i,mcp)/3000_mcp
     enddo
 
-    cirrus_templ(200:lmax) = l_divide_3000(200:lmax)**(-3.2)
+    cirrus_templ(200:lmax) = l_divide_3000(200:lmax)**(-2.2)
     cirrus_templ(2:199)=0.0
     
-    clust_rg_templ = l_divide_3000**(-1.2)
+    clust_rg_templ = l_divide_3000**(0.6)
     clust_rg_templ(2:49)=0.0
 
   end subroutine InitForegroundData
   
   subroutine InitRadioAmpPrior(iradio_amp,iradio_unc)
-    real(mcp)::iradio_amp, iradio_unc
+    double precision::iradio_amp, iradio_unc
     radio_amp=iradio_amp
     radio_unc=iradio_unc
   end subroutine InitRadioAmpPrior
   
   function GetRadioAmpPrior()
-    real(mcp) :: GetRadioAmpPrior
+    double precision :: GetRadioAmpPrior
     GetRadioAmpPrior=radio_amp
   end function GetRadioAmpPrior
   function GetRadioAmpUncPrior()
-    real(mcp) :: GetRadioAmpUncPrior
+    double precision :: GetRadioAmpUncPrior
     GetRadioAmpUncPrior=radio_unc
   end function GetRadioAmpUncPrior
 
   subroutine InitRadioClAmpPrior(iradio_amp,iradio_unc)
-    real(mcp)::iradio_amp, iradio_unc
-    radio_cl_amp=iradio_amp
-    radio_cl_unc=iradio_unc
+    double precision::iradio_amp, iradio_unc
+    radio_dl_amp=iradio_amp
+    radio_dl_unc=iradio_unc
   end subroutine InitRadioClAmpPrior
   
   function GetRadioClAmpPrior()
-    real(mcp) :: GetRadioClAmpPrior
-    GetRadioClAmpPrior=radio_cl_amp
+    double precision :: GetRadioClAmpPrior
+    GetRadioClAmpPrior=radio_dl_amp
   end function GetRadioClAmpPrior
   function GetRadioClAmpUncPrior()
-    real(mcp) :: GetRadioClAmpUncPrior
-    GetRadioClAmpUncPrior=radio_cl_unc
+    double precision :: GetRadioClAmpUncPrior
+    GetRadioClAmpUncPrior=radio_dl_unc
   end function GetRadioClAmpUncPrior
   
   !
   ! returns alpha prior on Poisson-cluster index
   !
   function GetAlphaPrior()
-    real(mcp) :: GetAlphaPrior
+    double precision :: GetAlphaPrior
     GetAlphaPrior = DelAlphaPrior
   end function GetAlphaPrior
 
@@ -937,7 +647,7 @@ contains
   ! returns cirrus prior pre-factor
   ! <0 is no prior.
   function GetCirrusFactor()
-    real(mcp) :: GetCirrusFactor
+    double precision :: GetCirrusFactor
     GetCirrusFactor = CirrusFactorPrior
   end function GetCirrusFactor
 
@@ -963,7 +673,7 @@ contains
   ! Basically just cast the array as the type and the parameters line up
   function GetForegroundParamsFromArray(array)
 
-    real(mcp), dimension(:) :: array
+    double precision, dimension(:) :: array
     type(foreground_params) :: GetForegroundParamsFromArray
 
     GetForegroundParamsFromArray = transfer(array,GetForegroundParamsFromArray)
@@ -972,15 +682,15 @@ contains
 
   !calculate external foreground prior LnL
   function  getForegroundPriorLnL(foregrounds)
-    real(mcp) ::  getForegroundPriorLnL
+    double precision ::  getForegroundPriorLnL
     type(foreground_params) :: foregrounds
-    real(mcp) :: del_alpha
+    double precision :: del_alpha
     integer i,j
-    real(mcp) :: radio_amp,radio_unc,fradio,radio_cl_amp,radio_cl_unc
-    real(mcp) :: cirrus90, cirrus150,cirrus220
-    real(mcp) :: prior90, prior150, prior220
-    real(mcp) :: cirrus_factor
-    real(mcp) :: freq
+    double precision :: radio_amp,radio_unc,fradio,radio_dl_amp,radio_dl_unc
+    double precision :: cirrus90, cirrus150,cirrus220
+    double precision :: prior90, prior150, prior220
+    double precision :: cirrus_factor
+    double precision :: freq
     integer anyhigh
 
     getForegroundPriorLnL=0
@@ -991,21 +701,6 @@ contains
        getForegroundPriorLnL = getForegroundPriorLnL + (foregrounds%T_dg_po-foregrounds%T_dg_cl)**2/(2*(del_alpha)**2)
 !       print*,'dusty index prior:',getForegroundPriorLnL
     end if
-    
-    if (use_decorrelation_matrix_form) then 
-       anyhigh = 0
-       if (any(foregrounds%decorrel_matrix < 0) .or. any(foregrounds%decorrel_matrix > 1)) &
-            anyhigh=1
-       do i=1,MaxNFreq-2 
-          do j=i+1,MaxNFreq-1
-             if (foregrounds%decorrel_matrix(dmatrix_index(i,j)) < foregrounds%decorrel_matrix(dmatrix_index(i,j+1))) &
-                  anyhigh=1
-          enddo
-       enddo
-       if (anyhigh /= 0) &
-            getForegroundPriorLnL = getForegroundPriorLnL +  1e6
- !      print*,'post decor prior:',getForegroundPriorLnL
-    endif
     
     !cirrus prior
     !updated 2011/05/28 to RKs 08+09 values
@@ -1056,7 +751,7 @@ contains
     
     radio_cl_amp = GetRadioClAmpPrior()
     radio_cl_unc = GetRadioClAmpUncPrior()
-    if (radio_cl_amp >= 0 .and. radio_cl_unc > 0) then
+    if (radio_dl_amp >= 0 .and. radio_dl_unc > 0) then
        fradio =(foregrounds%czero_rg_cl - radio_cl_amp) / radio_cl_unc
        getForegroundPriorLnL = getForegroundPriorLnL + fradio**2 / 2
        if (foregrounds%czero_rg_cl < 0) then
@@ -1068,96 +763,78 @@ contains
   end function getForegroundPriorLnL
   
   
-  subroutine InitLensingTemplate(LensingTemplate)
-    character*(*),intent(in) :: LensingTemplate
-    
-    cls_diff = read_dl_template(LensingTemplate)
-    
-  end subroutine InitLensingTemplate
+  !subroutine InitLensingTemplate(LensingTemplate)
+  !  character*(*),intent(in) :: LensingTemplate
+  !  
+  !  cls_diff = read_dl_template(LensingTemplate)
+  !end subroutine InitLensingTemplate
 
 
-  subroutine InitFGModel()
+  subroutine InitFGModel(Ini)
     use IniFile
+    class(TSettingIni) :: Ini
     character(LEN=Ini_max_string_len) SPTtSZTemplate, SPTkSZTemplate, &
          SPTkSZ2Template, SPTClus2Template, &
-         SPTClusTemplate, LensingTemplate
-    logical relative_alpha_cluster, relative_alpha_spire
+         SPTClusTemplate!, LensingTemplate
+    logical relative_alpha_cluster
     integer i,j,k
 
 !         ShangModelCorrelationShape
 !    logical ApplyCirrusPrior90,ApplyCirrusPrior150,ApplyCirrusPrior220
 !    logical cosmological_scaling_tsz, cosmological_scaling_ksz
-    real(mcp)   radio_amp, radio_unc, del_alpha
+    double precision   radio_amp, radio_unc, del_alpha
 
     if (SuccessfulInitialization) then 
        return
        !skip - already called successfully
     endif
 
-    k=0
-    do j=2,MaxNFreq 
-       do i=1,j-1
-          k=k+1
-          dmatrix_index(i,j)=k
-          dmatrix_index(j,i)=k
-       enddo
-    enddo
-    
-    LensingTemplate = Ini_Read_String('add_lensing_template', .false.)
-    call InitLensingTemplate(LensingTemplate)
+    !LensingTemplate = Ini_Read_String('add_lensing_template', .false.)
+    !call InitLensingTemplate(LensingTemplate)
         
-    SPTtSZTemplate = Ini_Read_String('spt_dataset_tSZ', .false.)
-    SPTkSZTemplate = Ini_Read_String('spt_dataset_kSZ', .false.)
-    SPTkSZ2Template = Ini_Read_String('spt_dataset_kSZ2', .false.)
-    SPTClusTemplate = Ini_Read_String('spt_dataset_clustered', .false.)
-    SPTClus2Template = Ini_Read_String('spt_dataset_clustered2', .false.)
+    SPTtSZTemplate = Ini%Read_String_Default('spt_dataset_tSZ', '')
+    SPTkSZTemplate = Ini%Read_String_Default('spt_dataset_kSZ', '')
+    SPTkSZ2Template = Ini%Read_String_Default('spt_dataset_kSZ2', '')
+    SPTClusTemplate = Ini%Read_String_Default('spt_dataset_clustered', '')
+    SPTClus2Template = Ini%Read_String_Default('spt_dataset_clustered2', '')
         
-    del_alpha = Ini_read_Real('spt_prior_clusterpoisson',-1.0)
-    radio_amp = Ini_read_Real('radio_ampl_mean',-1.0)
-    radio_unc = Ini_read_Real('radio_ampl_unc',-1.0)
+    del_alpha = Ini%Read_Real('spt_prior_clusterpoisson',-1.0)
+    radio_amp = Ini%Read_Real('radio_ampl_mean',-1.0)
+    radio_unc = Ini%Read_Real('radio_ampl_unc',-1.0)
     call InitRadioAmpPrior(radio_amp,radio_unc)
     if (MPIRank == 0) &
          print*,'priors, dAlpha,radio amp, radio sigma',&
          del_alpha,radio_amp,radio_unc
     
-    applyCIBCalToCirrus = Ini_Read_Logical('apply_cib_cal_to_cirrus',.true.)
-    calFactorsToCIB     = Ini_Read_Logical('cal_factors_for_cib',.false.)
-    
-    CIB_decorrelation_matrix = Ini_Read_Logical('use_cib_decorrelation_matrix',.false.)
+     only1HaloTszCib = Ini%Read_Logical('only_1halo_tsz_cib',.false.)
 
-    tSZ_CIB_logFreq = Ini_Read_Logical('tsz_cib_logfreq',.true.)
-    only1HaloTszCib = Ini_Read_Logical('only_1halo_tsz_cib',.false.)
-    combine_spire_for_tszcib_correlation = Ini_Read_Logical(&
-         'combine_spire_for_tszcib_correlation',.false.)
-    ShangModelCorrelationShape = Ini_Read_Logical(&
+    ShangModelCorrelationShape = Ini%Read_Logical(&
          'shang_model_correlation_shape',.false.)
-    use_decorrelation_matrix_form = Ini_Read_Logical(&
-         'use_decorrelation_matrix_form',.false.)
-    use_sigma = Ini_Read_Logical('use_sigma',.false.)
+   
+    use_sigma = Ini%Read_Logical('use_sigma',.false.)
     if (MPIRank == 0) &
          print*,'tSZ-CIB assumptions:',only1HaloTszCib, &
-         combine_spire_for_tszcib_correlation,ShangModelCorrelationShape
+         ShangModelCorrelationShape
     
-    single_clustered_freq_scaling = Ini_Read_Logical(&
+    single_clustered_freq_scaling = Ini%Read_Logical(&
          'single_clustered_freq_scaling',.true.)
-    relative_alpha_cluster = Ini_Read_Logical('relative_alpha_cluster',.true.)
-    relative_alpha_spire = Ini_Read_Logical('relative_alpha_spire',.true.)
+    relative_alpha_cluster = Ini%Read_Logical('relative_alpha_cluster',.true.)
+
     if (MPIRank == 0) &
          print*,'CIB freq dep. assumptions:',&
-         single_clustered_freq_scaling ,relative_alpha_cluster,&
-         relative_alpha_spire
+         single_clustered_freq_scaling ,relative_alpha_cluster
     
-    cosmological_scaling_ksz = Ini_Read_Logical(&
+    cosmological_scaling_ksz = Ini%Read_Logical(&
          'cosmological_scaling_ksz',.false.)
-    cosmological_scaling_tsz = Ini_Read_Logical(&
+    cosmological_scaling_tsz = Ini%Read_Logical(&
          'cosmological_scaling_tsz',.false.)
     if (MPIRank == 0) &
          print*,'Cosmo scaling ksz, tsz:',&
          cosmological_scaling_ksz,cosmological_scaling_tsz
     
-    ApplyCirrusPrior90 = Ini_Read_Logical('apply_prior_cirrus_90ghz',.false.)
-    ApplyCirrusPrior150 = Ini_Read_Logical('apply_prior_cirrus_150ghz',.true.)
-    ApplyCirrusPrior220 = Ini_Read_Logical('apply_prior_cirrus_220ghz',.true.)
+    ApplyCirrusPrior90 = Ini%Read_Logical('apply_prior_cirrus_90ghz',.false.)
+    ApplyCirrusPrior150 = Ini%Read_Logical('apply_prior_cirrus_150ghz',.true.)
+    ApplyCirrusPrior220 = Ini%Read_Logical('apply_prior_cirrus_220ghz',.true.)
     if (MPIRank == 0) &
          print*,'Cirrus priors used:',&
          ApplyCirrusPrior90,ApplyCirrusPrior150,ApplyCirrusPrior220    
@@ -1166,7 +843,7 @@ contains
          .AND. SPTClusTemplate/='') then
        call InitForegroundData(SPTClusTemplate, SPTClus2Template, &
             SPTkSZTemplate,SPTkSZ2Template,SPTtSZTemplate,del_alpha, &
-            relative_alpha_cluster, relative_alpha_spire)
+            relative_alpha_cluster)
     else
        print*,'called initFGModel w/o all args'
        print*,SPTtSZTemplate,SPTkSZTemplate,SPTkSZ2Template,SPTClusTemplate
