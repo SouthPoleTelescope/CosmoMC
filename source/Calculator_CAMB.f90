@@ -34,6 +34,12 @@
         type(CAMBParams)  CAMBP
         character(LEN=:), allocatable :: highL_theory_cl_template_file
         real(mcp), allocatable :: highL_lensedCL_template(:,:)
+        character(LEN=:), allocatable :: PMFvector_theory_cl_template_file
+        real(mcp), allocatable :: PMFvector_CL_template(:,:)
+        character(LEN=:), allocatable :: PMFtensor_theory_cl_template_file
+        real(mcp), allocatable :: PMFtensor_CL_template(:,:)
+        real(mcp) :: tensorPMF_template_scale,vectorPMF_template_scale
+        logical :: A_PMF_to_Fourth_Power = .false.
     contains
     !New
     procedure :: CMBToCAMB => CAMBCalc_CMBToCAMB
@@ -64,6 +70,7 @@
     procedure :: SetParamsForBackground => CAMBCalc_SetParamsForBackground
     procedure :: VersionTraceOutput => CAMBCalc_VersionTraceOutput
     procedure, private :: LoadFiducialHighLTemplate
+    procedure, private :: LoadFiducialPMFTemplate
     end type CAMB_Calculator
 
 
@@ -349,7 +356,7 @@
     real(mcp), parameter :: cons =  (COBE_CMBTemp*1e6)**2
     integer l
     real(mcp) :: highL_norm = 0
-    real(mcp) lens_recon_scale, rms
+    real(mcp) lens_recon_scale, rms, pmf_scale, tens_pmf_scale
     integer i,j, lmx, lmaxCL
     integer, save, allocatable :: indicesS(:,:), indicesT(:,:)
 
@@ -366,6 +373,13 @@
     end if
 
     lens_recon_scale = CMB%InitPower(Aphiphi_index)
+    pmf_scale = CMB%InitPower(Apmf_index)
+    tens_pmf_scale = (CMB%InitPower(beta_pmf_index)/20.7233)**1.9
+
+    if (this%A_PMF_to_Fourth_Power .and. (pmf_scale > 0)) then
+       pmf_scale = pmf_scale**4
+    endif
+
 
     do i=1, min(3,CosmoSettings%num_cls)
         do j= i, 1, -1
@@ -390,6 +404,11 @@
                             lmx = min(lmx,CosmoSettings%lmax_tensor)
                             CL(2:lmx) =  CL(2:lmx) + cons*Cl_tensor(2:lmx,1, indicesT(i,j))
                         end if
+                        if (pmf_scale > 0) then
+                           CL(2:lmaxCL) =  CL(2:lmaxCL) +(pmf_scale*this%PMFvector_CL_template(2:lmaxCL,indicesT(i,j)) &
+                                + tens_pmf_scale*pmf_scale*this%PMFtensor_CL_template(2:lmaxCL,indicesT(i,j)))
+                        endif
+
                     end if
                 end associate
             end if
@@ -861,6 +880,7 @@
     use NonLinear
     class(CAMB_Calculator) :: this
     class(TSettingIni) :: Ini
+    real(mcp) :: vectorPMF_B1Mpc, tensorPMF_B1Mpc, desiredPMF_B1Mpc
 
     call this%TCosmologyCalculator%ReadParams(Ini)
     this%calcName ='CAMB'
@@ -868,6 +888,26 @@
     this%CAMB_timing = Ini%Read_Logical('CAMB_timing',.false.)
 
     this%highL_theory_cl_template_file = Ini%ReadFilename('highL_theory_cl_template',DataDir,.true.)
+    this%PMFvector_theory_cl_template_file = Ini%ReadFilename('PMF_vector_theory_cl_template',DataDir,.true.)
+    this%PMFtensor_theory_cl_template_file = Ini%ReadFilename('PMF_tensor_theory_cl_template',DataDir,.true.)
+    this%A_PMF_to_Fourth_Power =Ini%Read_Logical('PMF_amplitude_to_fourth',.false.)
+    if (feedback > 1) print*,'PMF to 4th?',this%A_PMF_to_Fourth_Power
+
+    vectorPMF_B1Mpc = Ini%Read_Double('PMF_vector_B1Mpc',-1._mcp)
+    tensorPMF_B1Mpc = Ini%Read_Double('PMF_tensor_B1Mpc',-1._mcp)
+    desiredPMF_B1Mpc = Ini%Read_Double('PMF_desired_B1Mpc',-1._mcp)
+
+    this%tensorPMF_template_scale=1._mcp
+    this%vectorPMF_template_scale=1._mcp
+    if (desiredPMF_B1Mpc > 0) then
+       if (vectorPMF_B1Mpc > 0) then
+          this%vectorPMF_template_scale=(desiredPMF_B1Mpc/vectorPMF_B1Mpc)**4
+       endif
+       if (tensorPMF_B1Mpc > 0) then
+          this%tensorPMF_template_scale=(desiredPMF_B1Mpc/tensorPMF_B1Mpc)**4
+       endif
+    endif
+
 
     if (Ini%HasKey('highL_unlensed_cl_template')) then
         highL_unlensed_cl_template=  Ini%ReadFilename('highL_unlensed_cl_template')
@@ -892,6 +932,7 @@
             & call MpiStop('lmax_tensor > lmax_computed_cl')
         call this%LoadFiducialHighLTemplate()
     end if
+    call this%LoadFiducialPMFTemplate()
 
     call this%InitCAMBParams(this%CAMBP)
 
@@ -920,31 +961,78 @@
     end subroutine CAMBCalc_VersionTraceOutput
 
 
-
+    
     subroutine LoadFiducialHighLTemplate(this)
-    class(CAMB_Calculator) :: this
-    !This should be a lensed scalar CMB power spectrum, e.g. for including at very high L where foregrounds etc. dominate anyway
-    integer L,  status
-    real(mcp) array(4)
-    Type(TTextFile) :: F
-
-    allocate(this%highL_lensedCL_template(2:CosmoSettings%lmax, 4))
-    call F%Open(this%highL_theory_cl_template_file)
-    do
-        read(F%unit,*, iostat=status) L , array
-        if (status/=0 .or. L>CosmoSettings%lmax) exit
-        if (L>=2) this%highL_lensedCL_template(L,:) = array
+      class(CAMB_Calculator) :: this
+      !This should be a lensed scalar CMB power spectrum, 
+      !e.g. for including at very high L where foregrounds etc. dominate anyway
+      integer L,  status
+      real(mcp) array(4)
+      Type(TTextFile) :: F
+      
+      allocate(this%highL_lensedCL_template(2:CosmoSettings%lmax, 4))
+      call F%Open(this%highL_theory_cl_template_file)
+      do
+         read(F%unit,*, iostat=status) L , array
+         if (status/=0 .or. L>CosmoSettings%lmax) exit
+         if (L>=2) this%highL_lensedCL_template(L,:) = array
+      end do
+      call F%Close()
+      
+      if (this%highL_lensedCL_template(2,1) < 100) &
+           call MpiStop('highL_theory_cl_template must be in muK^2')
+      
+      if (L<CosmoSettings%lmax) call MpiStop('highL_theory_cl_template does not go to lmax')
+      
+    end subroutine LoadFiducialHighLTemplate
+    
+        subroutine LoadFiducialPMFTemplate(this)
+      class(CAMB_Calculator) :: this
+      !This should be a lensed scalar CMB power spectrum, e.g. for including at very high L where foregrounds etc. dominate anyway                                                                                                 
+      integer L,  status
+      real(mcp) array(4)
+      Type(TTextFile) :: F
+      
+      !we don't require these to go to lmax 
+      !these are files with l*(l+1)Cl/2pi                                         
+      !for vector and tensor                                               
+      ! we want to keep these units as continue - all the 'cls' are really 'dls
+      allocate(this%PMFvector_CL_template(2:CosmoSettings%lmax, 4),this%PMFtensor_CL_template(2:CosmoSettings%lmax, 4))
+      this%PMFvector_CL_template(:,:)=0
+      this%PMFtensor_CL_template(:,:)=0
+      !files are in order: TT,  EE, BB, TE 
+      if (feedback > 2)  print*,'PMF template files: ',this%PMFvector_theory_cl_template_file,this%PMFtensor_theory_cl_template_file
+      call F%Open(this%PMFvector_theory_cl_template_file)
+      !first line has a comment
+      read(F%unit,*, iostat=status)
+      do
+       read(F%unit,*, iostat=status) L , array
+       if (status/=0 .or. L>CosmoSettings%lmax) exit
+       if (L>=2) this%PMFvector_CL_template(L,:) = array
     end do
     call F%Close()
 
-    if (this%highL_lensedCL_template(2,1) < 100) &
-        call MpiStop('highL_theory_cl_template must be in muK^2')
+    call F%Open(this%PMFtensor_theory_cl_template_file)
+    !first line has a comment
+    read(F%unit,*, iostat=status)
+    do
+       read(F%unit,*, iostat=status) L , array
+       if (status/=0 .or. L>CosmoSettings%lmax) exit
+       if (L>=2) this%PMFtensor_CL_template(L,:) = array
+    end do
+    call F%Close()
 
-    if (L<CosmoSettings%lmax) call MpiStop('highL_theory_cl_template does not go to lmax')
+    if (feedback > 2) then
+       print*,'pmf tensor template read in at L=50 is:',this%PMFtensor_CL_template(50,:)
+       print*,'pmf vector template read in at L=50 is:',this%PMFvector_CL_template(50,:)
+       print*,'pmf scale factors: ',this%tensorPMF_template_scale,this%vectorPMF_template_scale
+    endif
+    ! and rescale as needed 
+    this%PMFvector_CL_template = this%PMFvector_CL_template*this%vectorPMF_template_scale
+    this%PMFtensor_CL_template = this%PMFtensor_CL_template*this%tensorPMF_template_scale
+  end subroutine LoadFiducialPMFTemplate
 
-    end subroutine LoadFiducialHighLTemplate
-
-
+    
     !!! CAMBTransferCache
 
     subroutine CAMBTransferCache_Clear(Info)
