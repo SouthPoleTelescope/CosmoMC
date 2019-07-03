@@ -87,7 +87,8 @@ PRECISION ?=
 WMAP ?=
 
 #e.g. PICO=/path/to/pypico
-PICO ?= $(shell python -c "import pypico; print pypico.get_folder()" 2> /dev/null)
+PICO ?= 
+#$(shell python -c "import pypico; print pypico.get_folder()" 2> /dev/null)
 
 #Needed for WMAP; set from ~/.bashrc definition or edit here
 cfitsio ?=
@@ -149,7 +150,7 @@ ifneq ($(PRECISION),)
 FFLAGS += -D$(PRECISION) -DMATRIX_$(PRECISION)
 endif
 
-PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o 
+PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o $(OUTPUT_DIR)/CMB_SPT_hiell_2019.o $(OUTPUT_DIR)/foregrounds.o
 
 
 ifneq ($(CLIK_PATH),)
@@ -221,7 +222,8 @@ $(OUTPUT_DIR)/GetDist.o: $(OUTPUT_DIR)/IO.o $(OUTPUT_DIR)/samples.o
 
 $(OUTPUT_DIR)/CalcLike_Cosmology.o: $(OUTPUT_DIR)/calclike.o
 $(OUTPUT_DIR)/CMB_SPTpol_BB_2019.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o
-
+$(OUTPUT_DIR)/CMB_SPT_hiell_2019.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o $(OUTPUT_DIR)/foregrounds.o
+$(OUTPUT_DIR)/foregrounds.o: $(OUTPUT_DIR)/IniObjects.o $(OUTPUT_DIR)/settings.o
 $(OUTPUT_DIR)/likelihood.o: $(OUTPUT_DIR)/GeneralTypes.o
 $(OUTPUT_DIR)/GeneralTypes.o: $(OUTPUT_DIR)/ObjectLists.o $(OUTPUT_DIR)/settings.o $(OUTPUT_DIR)/IO.o
 $(OUTPUT_DIR)/BaseParameters.o: $(OUTPUT_DIR)/GeneralTypes.o $(OUTPUT_DIR)/IO.o  $(OUTPUT_DIR)/settings.o
