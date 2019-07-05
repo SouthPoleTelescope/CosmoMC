@@ -123,7 +123,7 @@ contains
    integer*4 :: neff
    double precision, allocatable, dimension(:) :: locwin
    integer*8 :: offset,delta
-   integer*4 :: efflmin,efflmax
+   integer*4 :: efflmin,efflmax,j0,j1
    real*8 :: arr(2)
    real*8 rtmp
    Type(TTextFile) :: F
