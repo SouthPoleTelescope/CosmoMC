@@ -155,6 +155,8 @@
         max_lensed_ix = max_lensed_ix -1
     end do
     lmax_lensed = lSamp%l(max_lensed_ix)
+    print*,'asked for lmax_lensed',lmax_lensed
+    call mpistop('stopped after debug in lensing.f90'
     if (allocated(Cl_lensed)) deallocate(Cl_lensed)
     allocate(Cl_lensed(lmin:lmax_lensed,CP%InitPower%nn,1:4))
 
@@ -550,6 +552,8 @@
         max_lensed_ix = max_lensed_ix -1
     end do
     lmax_lensed = lSamp%l(max_lensed_ix)
+    print*,'asked for lmax_lensed',lmax_lensed
+    call mpistop('stopped after debug in lensing.f90'
     if (allocated(Cl_lensed)) deallocate(Cl_lensed)
     allocate(Cl_lensed(lmin:lmax_lensed,CP%InitPower%nn,1:4))
 
@@ -778,7 +782,8 @@
         max_lensed_ix = max_lensed_ix -1
     end do
     lmax_lensed = lSamp%l(max_lensed_ix)
-
+    print*,'asked for lmax_lensed',lmax_lensed
+    call mpistop('stopped after debug in lensing.f90'
     allocate(iCl_lensed(max_lensed_ix, CP%InitPower%nn, 1:4))
 
     max_j_contribs = lSamp%l0-1
