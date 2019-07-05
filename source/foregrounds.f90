@@ -72,7 +72,7 @@ module foregrounds
      double precision tsz_dg_cor
      double precision tsz_rg_cor
 
-     double precision dg_dl_ell_power
+     double precision dg_cl_ell_power
 
      double precision tsz_cib_slope
 
@@ -125,7 +125,7 @@ contains
 
      print*,'tsz_dg_cor_const',fgs%tsz_dg_cor
      print*,'tsz_rg_cor',fgs%tsz_rg_cor
-     print*,'dg_dl_ell_power',fgs%dg_dl_ell_power
+     print*,'dg_cl_ell_power',fgs%dg_cl_ell_power
      print*,'tsz cib slope', fgs%tsz_cib_slope
 
   end subroutine printForegrounds
@@ -341,8 +341,8 @@ contains
 
 
     dl_dusty_clustered = clust_dg_templ * (params%czero_dg_cl*frqdep)
-    if (params%dg_dl_ell_power /= 0) &
-         dl_dusty_clustered =  dl_dusty_clustered * (l_divide_3000)**params%dg_dl_ell_power
+    if (params%dg_cl_ell_power /= 0) &
+         dl_dusty_clustered =  dl_dusty_clustered * (l_divide_3000)**params%dg_cl_ell_power
     
     if (Want2Halo .and. params%czero_dg_cl2 /= 0) then
        if (single_clustered_freq_scaling ) then 
