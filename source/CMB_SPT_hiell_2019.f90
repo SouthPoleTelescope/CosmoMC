@@ -132,13 +132,19 @@ contains
 
    !Obtain necessary info from the desc_file pertaining
    !to which freqs we're using, ell range, and number of bins per spectrum.
+   inquire(FILE=trim(desc_file),EXIST=wexist)
+   if (.not. wexist) then
+      print*,'SPT hiell 2019, missing desc file:', trim(desc_file)
+      call mpistop()
+   endif
+   
    call F%Open(desc_file)
    read(F%unit,*) nall,nfreq !number of bandpowers, number of freqs
    if (nfreq > MaxNFreq) &
         call MpiStop('spt initialized with more than allowed Nfrequencies')
    nband = (nfreq)*(nfreq+1)/2
    allocate(nbins(nband))
-   
+   allocate(spt_eff_fr(5,nfreq),spt_prefactor(nfreq))
    do i=1,nband
       read (F%unit,*) j
       nbins(i)=j
@@ -156,12 +162,12 @@ contains
    read (F%unit,*) spt_windows_lmin, spt_windows_lmax !Min and Max ell in window file
    do j=1,nfreq
        do i=1,5
-          read (tmp_file_unit,*) rtmp
+          read (F%unit,*) rtmp
           spt_eff_fr(i,j) = rtmp
        enddo
     enddo
     do j=1,nfreq
-       read (tmp_file_unit,*) spt_prefactor(j)
+       read (F%unit,*) spt_prefactor(j)
     enddo
    call F%Close()
 
@@ -199,7 +205,11 @@ contains
 
    ! Read in bandpowers
    !Should be 90x90, 90x`150, 90x220,150x150, 150x220, 220x220 in that order
-
+   inquire(FILE=trim(bp_file),EXIST=wexist)
+   if (.not. wexist) then
+      print*,'SPT hiell 2019, missing bp file:', trim(bp_file)
+      call mpistop()
+   endif
    call F%Open(bp_file)
    do i=1,nall
       read (F%unit,*) dum,spec(i)
@@ -209,6 +219,11 @@ contains
    
    
    ! Read in covariance
+   inquire(FILE=trim(cov_file),EXIST=wexist)
+   if (.not. wexist) then
+      print*,'SPT hiell 2019, missing cov file:', trim(cov_file)
+      call mpistop()
+   endif
    if (binaryCov) then 
       call OpenReadBinaryFile(cov_file,tmp_file_unit,nall*8_8)
       do i=1,nall
@@ -225,6 +240,11 @@ contains
       call F%close()
    endif
    if (feedback > 1) print *, 'First entry of covariance matrix: ', cov(1,1)
+   inquire(FILE=trim(beamerr_file),EXIST=wexist)
+   if (.not. wexist) then
+      print*,'SPT hiell 2019, missing beamerr file:', trim(beamerr_file)
+      call mpistop()
+   endif
    if (binaryBeamErr) then 
       call OpenReadBinaryFile(beamerr_file,tmp_file_unit,nall*8_8)
       do i=1,nall
@@ -270,36 +290,13 @@ contains
       end do
       close(tmp_file_unit)
       deallocate(locwin)
-       
-      
+   else
       do i=1,nall
          inquire(FILE=trim(window_folder)//trim(numcat('window_',i)),EXIST=wexist)
          if (.not. wexist) then
             print*,'SPTpol, missing window file:', trim(window_folder)//trim(numcat('window_',i))
             call mpistop()
          endif
-         call OpenReadBinaryFile(trim(window_folder)//trim(numcat('window_',i)),tmp_file_unit,2*8_8)
-         j=1
-         do 
-            read(tmp_file_unit,rec=j, err=111) arr
-            j=j+1
-            l=idnint(arr(1))
-            if (dabs(l-arr(1)) > 1e-4) then
-               stop 'non-integer l in window file'
-            endif
-            if (l>=spt_windows_lmin .and. l<=spt_windows_lmax) then
-               windows(l,i)=arr(2)
-            endif
-
-         enddo
-111      close(tmp_file_unit)
-         if (feedback > 4) then
-            print*,'Spt-hiell wfile: ',trim(window_folder)//trim(numcat('window_',i))
-            print*,'SPT-hiell window:',i,j,sum(windows(:,i))
-         endif
-      end do
-   else
-      do i=1,nall
          call F%Open(trim(window_folder)//trim(numcat('window_',i)))
          do j=spt_windows_lmin,spt_windows_lmax
             read (F%unit,*) dum, windows(j,i)

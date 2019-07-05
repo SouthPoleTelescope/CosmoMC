@@ -31,7 +31,6 @@ module foregrounds
   logical :: only1HaloTszCib, CIB_decorrelation_matrix
   logical :: tSZ_CIB_logFreq
   logical :: ShangModelCorrelationShape,applyCIBCalToCirrus,calFactorsToCIB
-  logical :: use_decorrelation_matrix_form, use_sigma
   integer, parameter :: ntsz=1,nksz=2,ncirrus=1
   integer, parameter:: index_tsz=1, index_ksz = index_tsz+ntsz, &
        index_dg_po=index_ksz+nksz, &
@@ -516,8 +515,16 @@ contains
     double precision :: realtmp
     integer :: ll 
     Type(TTextFile) :: F
+    logical wexist
     read_dl_template(2:lmax)=0.0
+
     if (filename/='') then
+       inquire(FILE=trim(filename),EXIST=wexist)
+       if (.not. wexist) then
+          print*,'SPT hiell 2019, missing template file:', trim(filename)
+          call mpistop()
+       endif
+
        call F%Open(filename)
        do
           read(F%unit,*,end=2) ll, realtmp
@@ -535,8 +542,14 @@ contains
     double precision :: realtmp
     integer :: ll
     Type(TTextFile) :: F
+    logical wexist
     read_cl_template(2:lmax)=0.0
     if (filename/='') then
+       inquire(FILE=trim(filename),EXIST=wexist)
+       if (.not. wexist) then
+          print*,'SPT hiell 2019, missing template file:', trim(filename)
+          call mpistop()
+       endif
        call F%Open(filename)
        do
           read(F%unit,*,end=2) ll, realtmp
@@ -815,7 +828,7 @@ contains
     ShangModelCorrelationShape = Ini%Read_Logical(&
          'shang_model_correlation_shape',.false.)
    
-    use_sigma = Ini%Read_Logical('use_sigma',.false.)
+
     if (MPIRank == 0) &
          print*,'tSZ-CIB assumptions:',only1HaloTszCib, &
          ShangModelCorrelationShape
