@@ -1,10 +1,10 @@
 
 spt_hiell_params_file=spt_hiell_2019.paramnames
-spt_hiell_description=
-spt_hiell_bandpowers=
-spt_hiell_binary_covariance=
-spt_hiell_binary_windir=
-spt_hiell_binary_beamerr=
+spt_hiell_description=data/spt_hiell_2019/spt_hiell_2019.info
+spt_hiell_bandpowers=data/spt_hiell_2019/spt_hiell_2019.bp_file
+spt_hiell_binary_covariance=data/spt_hiell_2019/spt_hiell_2019_cov.bin
+spt_hiell_binary_window=data/spt_hiell_2019/spt_hiell_2019_window.bin
+spt_hiell_binary_beamerr=data/spt_hiell_2019/spt_hiell_2019_beamerr.bin
 
 print_spectrum = F
 print_spectrum_components = F
