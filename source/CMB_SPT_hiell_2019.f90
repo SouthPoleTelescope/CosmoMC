@@ -85,7 +85,7 @@ contains
       cov_file = Ini%Read_String_Default('spt_hiell_covariance','')
       binaryCov=.False.
    endif
-   window_folder = Ini%Read_String_Default('spt_hiell_binary_windir','')
+   window_folder = Ini%Read_String_Default('spt_hiell_binary_window','')
    if (window_folder == '') then 
       window_folder = Ini%Read_String_Default('spt_hiell_windir','')
       binaryWindows=.False.
@@ -96,7 +96,7 @@ contains
       binaryBeamErr=.False.
    endif
       
-   normalizeSZ_143GHz = Ini%Read_Logical('normalizeSZ_143ghz',.false.)
+   normalizeSZ_143GHz = .true. !Ini%Read_Logical('normalizeSZ_143ghz',.false.)
    !do we want extra debug prints
    printDlSPT = Ini%Read_Logical('print_spectrum',.false.)
    printDlSPTComponents = Ini%Read_Logical('print_spectrum_components',.false.)
@@ -121,6 +121,7 @@ contains
    integer, parameter :: tmp_file_unit=82
    integer i,j,k,l,dum,lwin
    integer*4 :: neff
+   double precision, allocatable, dimension(:) :: locwin
    integer*8 :: offset,delta
    integer*4 :: efflmin,efflmax
    real*8 :: arr(2)
@@ -245,6 +246,32 @@ contains
    
    ! Read in windows
    if (binaryWindows) then
+      inquire(FILE=trim(window_folder),EXIST=wexist)
+      if (.not. wexist) then
+         print*,'SPT hiell 2019, missing window file:', trim(window_folder)
+         call mpistop()
+      endif
+      call OpenReadBinaryStreamFile(trim(window_folder),tmp_file_unit)
+      read(tmp_file_unit,pos=1)efflmin,efflmax
+      allocate(locwin(efflmin:efflmax))
+      if ((efflmax .lt. spt_windows_lmin) .or. (efflmin .gt. spt_windows_lmax)) &
+           call MpiStop('unallowed l-ranges for binary window functions')
+      j0=efflmin
+      if (spt_windows_lmin > j0) j0=spt_windows_lmin
+      j1=efflmax
+      if (spt_windows_lmax < j1) j1=spt_windows_lmax
+      if (j1 < j0) &
+           call MpiStop('unallowed l-ranges for binary window functions - no allowed ells')
+      delta=(efflmax-efflmin+1)*8_8
+      offset=2 * 4_8+1
+      do i=1,nall
+         read(tmp_file_unit,pos=((i-1)*delta + offset)) locwin
+         windows(j0:j1,i)=locwin(j0:j1)
+      end do
+      close(tmp_file_unit)
+      deallocate(locwin)
+       
+      
       do i=1,nall
          inquire(FILE=trim(window_folder)//trim(numcat('window_',i)),EXIST=wexist)
          if (.not. wexist) then
