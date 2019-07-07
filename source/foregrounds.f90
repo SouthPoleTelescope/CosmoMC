@@ -611,7 +611,7 @@ contains
        l_divide_3000(i) = real(i)/3000d0
     enddo
 
-    cirrus_templ(200:lmax) = l_divide_3000(200:lmax)**(-2.2)
+    cirrus_templ(200:lmax) = l_divide_3000(200:lmax)**(-1.2)
     cirrus_templ(2:199)=0.0
     
     clust_rg_templ = l_divide_3000**(0.6)
