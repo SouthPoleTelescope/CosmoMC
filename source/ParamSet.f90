@@ -69,7 +69,7 @@
     print*,'is P allocated?',size(this%P)
     print*,params_used(1:num_params_used)
     write(F%unit) this%P(params_used)
-
+    print*,'is line right?'
     call this%Theory%WriteTheory(F, isfirst)
 
     if (flush_write) call F%Flush()
