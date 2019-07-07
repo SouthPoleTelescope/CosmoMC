@@ -946,9 +946,7 @@
     end if
     lSet%l0=lind
     lSet%l(1:lind) = ls(1:lind)
-    print*,'inilval in camb modules: requested, ',max_l,' set: ',lSet%l(lind)
-    call mpistop('just running to debug print in modules.f90')
-    end subroutine initlval
+  end subroutine initlval
 
     subroutine InterpolateClArr(lSet,iCl, all_Cl, max_ind)
     type (lSamples), intent(in) :: lSet

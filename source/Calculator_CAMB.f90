@@ -784,7 +784,7 @@
 
     if (CosmoSettings%CMB_Lensing) then
         P%DoLensing = .true.
-        P%Max_l = CosmoSettings%lmax_computed_cl +100 + 50 !+50 in case accuracyBoost>1 and so odd l spacing
+        P%Max_l = CosmoSettings%lmax_computed_cl +500 + 50 !+50 in case accuracyBoost>1 and so odd l spacing
         P%Max_eta_k = P%Max_l*2
     end if
 
@@ -869,7 +869,6 @@
     this%CAMB_timing = Ini%Read_Logical('CAMB_timing',.false.)
 
     this%highL_theory_cl_template_file = Ini%ReadFilename('highL_theory_cl_template',DataDir,.true.)
-
 
     if (Ini%HasKey('highL_unlensed_cl_template')) then
         highL_unlensed_cl_template=  Ini%ReadFilename('highL_unlensed_cl_template')
