@@ -1,4 +1,4 @@
-  !Likelihood code used in 
+!Likelihood code used in 
   !SPTpol+SZ l=2000-11000 power spectrum
   !For questions, please contact Christian Reichardt
   module CMB_SPT_hiell_2019
@@ -144,7 +144,7 @@ contains
         call MpiStop('spt initialized with more than allowed Nfrequencies')
    nband = (nfreq)*(nfreq+1)/2
    allocate(nbins(nband))
-   allocate(spt_eff_fr(5,nfreq),spt_prefactor(nfreq))
+   allocate(spt_eff_fr(5,nfreq),spt_prefactor(nfreq),indices(2,nband),offsets(nband))
    do i=1,nband
       read (F%unit,*) j
       nbins(i)=j
@@ -305,6 +305,19 @@ contains
       end do
    end if
 
+   i=0
+   do j=1,nfreq
+      do k=j,nfreq
+         i=i+1
+         indices(1,i)=j
+         indices(2,i)=k
+      end do
+   end do
+   offsets(1)=1
+   do i=2,nband
+      offsets(i)=offsets(i-1)+nbins(i-1)
+   enddo
+   
 
    SuccessfulSPTHiellInitialization = .true.
 

@@ -1,6 +1,6 @@
 
 OUTPUT_DIR ?= Release
-#OUTPUT_DIR = Debug
+OUTPUT_DIR = Debug
 
 BUILD ?= MPI
 #set BUILD to MPI to force MPI, should be set in ../Makefile
