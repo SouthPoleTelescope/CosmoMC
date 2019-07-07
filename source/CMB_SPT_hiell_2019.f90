@@ -17,7 +17,7 @@
     ! cov == The cholesky factored bandpower covariance  
     double precision, dimension(:,:),allocatable :: cov, windows, beam_err, cov_w_beam
     integer :: spt_windows_lmin,spt_windows_lmax
-    double precision, dimension(:), allocatable :: cl_to_dl_conversion,dl_th,spec,ells
+    double precision, dimension(:), allocatable :: cl_to_dl_conversion,spec,ells
     double precision, dimension(:,:), allocatable :: spt_eff_fr
     double precision, dimension(:), allocatable :: spt_prefactor
     double precision, dimension(5) ::  spt_norm_fr
@@ -372,7 +372,7 @@ contains
 
    !$OMP PARALLEL DO  DEFAULT(NONE), &
    !$OMP  SHARED(cbs,indices,foregroundParams,spt_eff_fr,spt_norm_fr,cl_to_dl_conversion,nbins,nfreq,dl_cmb,spt_windows_lmax,spt_windows_lmin,windows,spt_prefactor,CalFactors,deltacb,offsets,spec,nband,printDlSPT,printDlSPTComponents), &
-   !$OMP  private(i,j,k,dl_fgs,dl_th,tmpcb,thisnbin,l,thisoffset,fid,arr,component_spectra,comp_arr), &
+   !$OMP  private(i,j,k,dl_fgs,tmpcb,thisnbin,l,thisoffset,fid,arr,component_spectra,comp_arr), &
    !$OMP SCHEDULE(STATIC)
    do i=1,nband
       j=indices(1,i)
@@ -427,7 +427,7 @@ contains
       !now bin with window functions
       call dgemv('T',spt_windows_lmax-spt_windows_lmin+1,thisnbin,1.0d0,&
            windows(:,thisoffset:thisoffset+thisnbin-1),spt_windows_lmax-spt_windows_lmin+1,&
-           dl_th,1,0.0d0,tmpcb,1)
+           dl_fgs,1,0.0d0,tmpcb,1)
 
       !apply prefactors
       tmpcb = tmpcb * spt_prefactor(k)*spt_prefactor(j)*CalFactors(j)*CalFactors(k)
