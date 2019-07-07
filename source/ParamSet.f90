@@ -64,6 +64,8 @@
 
     write(F%unit) mult, like
     write(F%unit) this%Likelihoods(1:DataLikelihoods%Count)
+    print*,'paramset test:',num_params_used,size(params_used)
+    print*,'is P allocated?',size(this%P)
     write(F%unit) this%P(params_used)
 
     call this%Theory%WriteTheory(F, isfirst)
