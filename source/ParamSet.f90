@@ -69,7 +69,9 @@
     print*,'is P allocated?',size(this%P)
     print*,params_used(1:num_params_used)
     print*,'this like:',this%Likelihoods(1:DataLikelihoods%Count)
+
     print*,'params:',this%P(1:25)
+    print*,'params2:',this%P(1:50)
     print*,'all params:',params_used
     print*,'test',this%P(params_used(1:num_params_used))
     write(F%unit) this%P(params_used(1:num_params_used))
