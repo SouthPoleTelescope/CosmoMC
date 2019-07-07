@@ -63,7 +63,6 @@
     class(TSettingIni) :: Ini
 
     num_params = max(num_theory_params, this%NameMapping%num_MCMC)
-    print*,'baseParameters: have ',num_params
     num_data_params = num_params - num_theory_params
     output_lines = 0
 
@@ -87,7 +86,6 @@
     class(TBaseParameters) :: this
     class(TCalculationAtParamPoint) Params
     integer ix,i
-    print*,'baseParametersstarts: have ',num_params_used
     do ix=1,num_params_used
         i = params_used(ix)
         do
@@ -149,7 +147,6 @@
     end do
 
     num_params_used=count(this%varying)
-    print*,'baseParameters alloc: have ',num_params_used
     allocate(params_used(num_params_used))
     j=0
     do i=1,num_params
