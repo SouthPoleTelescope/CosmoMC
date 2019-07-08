@@ -21,6 +21,8 @@
     double precision, dimension(:,:), allocatable :: spt_eff_fr
     double precision, dimension(:), allocatable :: spt_prefactor
     double precision, dimension(5) ::  spt_norm_fr
+    double precision, dimension(3,3) :: cal_cov
+    double precision :: CalibLnL0
     integer, dimension(:,:),allocatable :: indices
     
     logical :: SuccessfulSPTInitialization
@@ -35,12 +37,6 @@
     logical :: binaryCov, binaryWindows, binaryBeamErr
     
     !real(mcp) :: meanBeam
-    real(mcp) :: meanTcal, sigmaTcal
-    real(mcp) :: meanPcal, sigmaPcal
-    real(mcp) :: meankappa, sigmakappa
-    real(mcp) :: meanAlphaEE, sigmaAlphaEE
-    real(mcp) :: meanAlphaTE, sigmaAlphaTE
-
 
     Type, extends(TCMBLikelihood) :: TSPTHiEllLike
   contains
@@ -129,7 +125,19 @@ contains
    Type(TTextFile) :: F
    integer*4 :: errcode
    logical wexist
+   double precision, dimension(3):: zeros
 
+   zeros=0
+   cal_cov(1,1) = 1.1105131e-05
+   cal_cov(1,2) = 3.5551351e-06
+   cal_cov(2,1) = cal_cov(1,2)
+   cal_cov(1,3) = 1.1602891e-06
+   cal_cov(3,1) = cal_cov(1,3)
+   cal_cov(2,2) = 3.4153547e-06
+   cal_cov(2,3) = 2.1348018e-06
+   cal_cov(3,2) = cal_cov(2,3)
+   cal_cov(3,3) = 1.7536000e-05
+   CalibLnL0 = Matrix_GaussianLogLikeDouble(cal_cov,zeros)
    !Obtain necessary info from the desc_file pertaining
    !to which freqs we're using, ell range, and number of bins per spectrum.
    inquire(FILE=trim(desc_file),EXIST=wexist)
@@ -472,9 +480,15 @@ contains
       SPTHiEllLnLike = SPTHiEllLnLike + getForegroundPriorLnL(foregroundParams)
    endif
 
+   delta_calib = log(CalFactors)
+   !can take off cov term since cov is fixed, and constant for all points
+   CalibLnLike = Matrix_GaussianLogLikeDouble(cal_cov,delta_calib) - CalibLnL0
+   SPTHiEllLnLike = SPTHiEllLnLike + CalibLnLike
+
 
    if (feedback > 1)  then
       print *, 'SPTHiEllLnLike lnlike = ', SPTHiEllLnLike
+      print*, 'Calibration chisq',2*(CalibLnLike-CalibLnL0)
       detcov = Matrix_GaussianLogLikeDouble(cov_w_beam, deltacb*0)
       print *, 'SPTHiEllLike chisq (after priors) = ', 2*(SPTHiEllLnLike-detcov)
    endif
