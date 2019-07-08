@@ -349,7 +349,7 @@ contains
    double precision, dimension(spt_windows_lmax,7) :: component_spectra
    double precision :: PriorLnLike
    double precision :: dum
-   double precision :: SPTHiEllLnLike
+   double precision :: SPTHiEllLnLike,CalibLnLike
    double precision, parameter :: d3000 = 3000*3001/TWOPI
    double precision, parameter :: beta = 0.0012309
    double precision, parameter :: dipole_cosine = -0.4033
@@ -359,7 +359,7 @@ contains
    double precision, dimension(2) :: PoissonLevels 
    double precision, dimension(2) :: ADust
    double precision, dimension(2) :: alphaDust
-   double precision, dimension(3) ::  CalFactors !90, 150, 220
+   double precision, dimension(3) ::  CalFactors,delta_calib !90, 150, 220
    double precision, dimension(10) ::  comp_arr
    type(foreground_params) :: foregroundParams
    integer :: i,j,k, l,kk, thisoffset,thisnbin
