@@ -340,6 +340,7 @@
     end do
 
     if (NameMapping%nnames/=0) then
+       print*,'branch1'
         outline=''
         do i=1, nused
             outline = outline//' '//NameMapping%NameAtIndex(used_ix(i))
@@ -349,9 +350,11 @@
         call IO_WriteProposeMatrix(covmatrix,trim(rootdirname) //'.covmat', outline)
         !               call Matrix_write(trim(rootdirname) //'.covmat',covmatrix,.true.,commentline=outline)
         deallocate(covmatrix)
-    else
+     else
+        print*,'branch=2'
         if (covmat_dimension /= 0 .and. .not. plots_only) then
-            if (covmat_dimension > ncols -2) stop 'covmat_dimension larger than number of parameters'
+           if (covmat_dimension > ncols -2) stop 'covmat_dimension larger than number of parameters'
+           print*,'branch=2b'
             write (*,*) 'Writing covariance matrix for ',covmat_dimension,' parameters'
             allocate(covmatrix(covmat_dimension,covmat_dimension))
             covmatrix=corrmatrix(1:covmat_dimension,1:covmat_dimension)
@@ -2407,6 +2410,7 @@
     end if
     !Get covariance matrix and correlation matrix
 
+    print*,'Cov Mat'
     call GetCovMatrix
     if (PCA_num>0 .and. .not. plots_only) call PCA(PCA_params,PCA_num,PCA_func, PCA_NormParam)
 
