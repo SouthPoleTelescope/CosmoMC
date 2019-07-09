@@ -15,13 +15,13 @@
     integer :: nfreq, nband, nall,maxnbin
     integer,dimension(:),allocatable :: nbins,offsets
     ! cov == The cholesky factored bandpower covariance  
-    double precision, dimension(:,:),allocatable :: cov, windows, beam_err, cov_w_beam
+    double precision, dimension(:,:),allocatable :: cov, windows, beam_err, cov_w_beam,cov_tmp
     integer :: spt_windows_lmin,spt_windows_lmax
     double precision, dimension(:), allocatable :: cl_to_dl_conversion,spec,ells
     double precision, dimension(:,:), allocatable :: spt_eff_fr
     double precision, dimension(:), allocatable :: spt_prefactor
     double precision, dimension(5) ::  spt_norm_fr
-    double precision, dimension(3,3) :: cal_cov
+    double precision, dimension(3,3) :: cal_cov,tmp
     double precision :: CalibLnL0
     integer, dimension(:,:),allocatable :: indices
     
@@ -32,7 +32,6 @@
     logical :: SuccessfulSPTHiellInitialization
     logical :: printDlSPT, printDlSPTComponents
     logical :: plankish
-    logical :: CallFGPrioer
     
     logical :: binaryCov, binaryWindows, binaryBeamErr
     
@@ -65,6 +64,7 @@ contains
 
    call InitFGModel(Ini)
    
+
    param_file = Ini%Read_String_Default( 'spt_hiell_params_file','')
    call this%loadParamNames(param_file)
 
@@ -94,6 +94,7 @@ contains
       
    normalizeSZ_143GHz = .true. !Ini%Read_Logical('normalizeSZ_143ghz',.false.)
    !do we want extra debug prints
+   CallFGPrior =  Ini%Read_Logical('apply_fg_prior',.true.)
    printDlSPT = Ini%Read_Logical('print_spectrum',.false.)
    printDlSPTComponents = Ini%Read_Logical('print_spectrum_components',.false.)
    if ((printDlSPT .or. printDlSPTComponents) .and. MPIRank /= 0) then
@@ -137,7 +138,8 @@ contains
    cal_cov(2,3) = 2.1348018e-06
    cal_cov(3,2) = cal_cov(2,3)
    cal_cov(3,3) = 1.7536000e-05
-   CalibLnL0 = Matrix_GaussianLogLikeDouble(cal_cov,zeros)
+   tmp=cal_cov
+   CalibLnL0 = Matrix_GaussianLogLikeDouble(tmp,zeros)
    !Obtain necessary info from the desc_file pertaining
    !to which freqs we're using, ell range, and number of bins per spectrum.
    inquire(FILE=trim(desc_file),EXIST=wexist)
@@ -203,7 +205,7 @@ contains
    allocate(windows(spt_windows_lmin:spt_windows_lmax,nall), &
         spec(nall))
 
-   allocate(cov(nall,nall), beam_err(nall,nall),cov_w_beam(nall,nall))
+   allocate(cov(nall,nall), beam_err(nall,nall),cov_w_beam(nall,nall),cov_tmp(nall,nall))
 
    !Define an array with the l*(l+1)/2pi factor to convert to Dl from Cl.
    do j=spt_windows_lmin,spt_windows_lmax
@@ -369,7 +371,7 @@ contains
    real*4, dimension(7) :: arr7
    integer*4 :: errcode
    integer, dimension(1)::ivec
-
+   double precision :: kszfac, tszfac
 
    double precision, dimension(spt_windows_lmin:spt_windows_lmax) :: dl_fgs
    integer, parameter :: iFG = 4
@@ -384,6 +386,10 @@ contains
    if (iFG .gt. 100) call mpistop() !haven't done it yet
    CalFactors = DataParams(1:3)
    foregroundParams = GetForegroundParamsFromArray(DataParams(iFG:iFG+nForegroundParams))
+   kszfac = cosmo_scale_ksz(CMB%H0,Theory%sigma_8,CMB%omb,CMB%omc+CMB%omb+CMB%omnu,CMB%InitPower(ns_index),CMB%tau)
+   tszfac = cosmo_scale_tsz(CMB%H0,Theory%sigma_8,CMB%omb)
+   foregroundParams.czero_tsz = foregroundParams.czero_tsz * tszfac
+   foregroundParams.czero_ksz = foregroundParams.czero_ksz * kszfac
    !add this to use negative for correlation
 
    if (printDlSPT) then
@@ -473,7 +479,7 @@ contains
    enddo
 
    cov_w_beam = cov + cov_w_beam
-
+   if (feedback > 1)    cov_tmp=cov_w_beam
    SPTHiEllLnLike =  Matrix_GaussianLogLikeDouble(cov_w_beam, deltacb)
    
    if (CallFGPrior) then
@@ -482,14 +488,15 @@ contains
 
    delta_calib = log(CalFactors)
    !can take off cov term since cov is fixed, and constant for all points
-   CalibLnLike = Matrix_GaussianLogLikeDouble(cal_cov,delta_calib) - CalibLnL0
+   tmp=cal_cov
+   CalibLnLike = Matrix_GaussianLogLikeDouble(tmp,delta_calib) - CalibLnL0
    SPTHiEllLnLike = SPTHiEllLnLike + CalibLnLike
 
 
    if (feedback > 1)  then
       print *, 'SPTHiEllLnLike lnlike = ', SPTHiEllLnLike
       print*, 'Calibration chisq',2*(CalibLnLike-CalibLnL0)
-      detcov = Matrix_GaussianLogLikeDouble(cov_w_beam, deltacb*0)
+      detcov = Matrix_GaussianLogLikeDouble(cov_tmp, deltacb*0)
       print *, 'SPTHiEllLike chisq (after priors) = ', 2*(SPTHiEllLnLike-detcov)
    endif
  end function SPTHiEllLnLike

@@ -706,7 +706,6 @@ contains
     double precision :: cirrus_factor
     double precision :: freq
     integer anyhigh
-
     getForegroundPriorLnL=0
     
     del_alpha = GetAlphaPrior()
@@ -721,7 +720,8 @@ contains
 !9/22 updated with adhoc 23h value
 !also decided to leave out 90 GHz prior since effectively 0 and not well matched to SED shape.
     !9/23 updated to make all three optional. 150/220 will still be default if keyword's aren't in ini file
-    cirrus_factor = 1./3.
+    cirrus_factor=1 !had been 1/3, but can't tell why
+    if (feedback > 3)    print*,'do I do cirrus?',ApplyCirrusPrior90, ApplyCirrusPrior150, ApplyCirrusPrior220
     if (foregrounds%czero_cirrus .ne. 0) then
        if (ApplyCirrusPrior90) then 
           freq=97.9
@@ -729,8 +729,9 @@ contains
           
           prior90=0.16*cirrus_factor
           getForegroundPriorLnL = getForegroundPriorLnL + &
-               (log(cirrus90 / prior90))**2 / (2*(0.43)**2)
-          !     print*,'post cirrus90 prior:',getForegroundPriorLnL       
+               (cirrus90-prior90)**2 / (2* (.06)**2)
+          !               (log(cirrus90 / prior90))**2 / (2*(0.43)**2)
+              if (feedback > 3)  print*,'post cirrus90 prior:',getForegroundPriorLnL       
        endif
        if (ApplyCirrusPrior150) then 
           freq=153.44
@@ -738,8 +739,9 @@ contains
           
           prior150=0.21*cirrus_factor
           getForegroundPriorLnL = getForegroundPriorLnL + &
-               (log(cirrus150/prior150))**2 / (2*(0.564)**2)
-          !print*,'post cirrus150 prior:',getForegroundPriorLnL,cirrus150,prior150
+               (cirrus150-prior150)**2 / (2*(.06)**2)
+           !    (log(cirrus150/prior150))**2 / (2*(0.564)**2)
+          if (feedback > 3)           print*,'post cirrus150 prior:',getForegroundPriorLnL,cirrus150,prior150
        endif
        if (ApplyCirrusPrior220) then 
           freq=219.67
@@ -747,8 +749,9 @@ contains
           
           prior220=2.19*cirrus_factor
           getForegroundPriorLnL = getForegroundPriorLnL + &
-               (log(cirrus220/prior220))**2 / (2*(0.33)**2)
-         ! print*,'post cirrus220 prior:',getForegroundPriorLnL,cirrus220,prior220
+               (cirrus220-prior220)**2 / (2*(.7)**2)
+!               (log(cirrus220/prior220))**2 / (2*(0.33)**2)
+          if (feedback > 3) print*,'post cirrus220 prior:',getForegroundPriorLnL,cirrus220,prior220
        endif
     endif
        
