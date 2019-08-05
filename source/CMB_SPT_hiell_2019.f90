@@ -28,6 +28,7 @@
     logical :: SuccessfulSPTInitialization
     logical :: normalizeSZ_143GHz
     logical :: CallFGPrior
+    logical :: ApplyFTSPrior
     
     logical :: SuccessfulSPTHiellInitialization
     logical :: printDlSPT, printDlSPTComponents
@@ -95,6 +96,8 @@ contains
    normalizeSZ_143GHz = .true. !Ini%Read_Logical('normalizeSZ_143ghz',.false.)
    !do we want extra debug prints
    CallFGPrior =  Ini%Read_Logical('apply_fg_prior',.true.)
+   ApplyFTSPrior == Ini%Read_Logical('apply_prior_FTS_bands',.true.)
+   
    printDlSPT = Ini%Read_Logical('print_spectrum',.false.)
    printDlSPTComponents = Ini%Read_Logical('print_spectrum_components',.false.)
    if ((printDlSPT .or. printDlSPTComponents) .and. MPIRank /= 0) then
@@ -351,7 +354,7 @@ contains
    double precision, dimension(spt_windows_lmax,7) :: component_spectra
    double precision :: PriorLnLike
    double precision :: dum
-   double precision :: SPTHiEllLnLike,CalibLnLike
+   double precision :: SPTHiEllLnLike,CalibLnLike, FTSLnLike, FTSfactor
    double precision, parameter :: d3000 = 3000*3001/TWOPI
    double precision, parameter :: beta = 0.0012309
    double precision, parameter :: dipole_cosine = -0.4033
@@ -374,7 +377,7 @@ contains
    double precision :: kszfac, tszfac
 
    double precision, dimension(spt_windows_lmin:spt_windows_lmax) :: dl_fgs
-   integer, parameter :: iFG = 4
+   integer, parameter :: iFG = 5
 
    ! get CMB spectrum
    call Theory%ClArray(dl_cmb(:),CL_T,CL_T)      
@@ -385,6 +388,7 @@ contains
    endif
    if (iFG .gt. 100) call mpistop() !haven't done it yet
    CalFactors = DataParams(1:3)
+   FTSFactor  = DataParams(4)
    foregroundParams = GetForegroundParamsFromArray(DataParams(iFG:iFG+nForegroundParams))
    kszfac = cosmo_scale_ksz(CMB%H0,Theory%sigma_8,CMB%omb,CMB%omc+CMB%omb+CMB%omnu,CMB%InitPower(ns_index),CMB%tau)
    tszfac = cosmo_scale_tsz(CMB%H0,Theory%sigma_8,CMB%omb)
@@ -398,7 +402,7 @@ contains
 
 
    !$OMP PARALLEL DO  DEFAULT(NONE), &
-   !$OMP  SHARED(cbs,indices,foregroundParams,spt_eff_fr,spt_norm_fr,cl_to_dl_conversion,nbins,nfreq,dl_cmb,spt_windows_lmax,spt_windows_lmin,windows,spt_prefactor,CalFactors,deltacb,offsets,spec,nband,printDlSPT,printDlSPTComponents), &
+   !$OMP  SHARED(cbs,indices,foregroundParams,spt_eff_fr,spt_norm_fr,cl_to_dl_conversion,nbins,nfreq,dl_cmb,spt_windows_lmax,spt_windows_lmin,windows,spt_prefactor,CalFactors,deltacb,offsets,spec,nband,printDlSPT,printDlSPTComponents, FTSfactor), &
    !$OMP  private(i,j,k,dl_fgs,tmpcb,thisnbin,l,thisoffset,fid,arr,component_spectra,comp_arr), &
    !$OMP SCHEDULE(STATIC)
    do i=1,nband
@@ -410,10 +414,10 @@ contains
 
       !first get theory spectra
       if (printDlSPTComponents) then
-         dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr, &
+         dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr+FTSfactor, &
               spt_norm_fr,component_spectra) 
       else
-         dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr, &
+         dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr+FTSfactor, &
               spt_norm_fr) 
       endif
       !add CMB
@@ -492,6 +496,11 @@ contains
    CalibLnLike = Matrix_GaussianLogLikeDouble(tmp,delta_calib) - CalibLnL0
    SPTHiEllLnLike = SPTHiEllLnLike + CalibLnLike
 
+   FTSLnLike = 0
+   if (ApplyFTSPrior) &
+        FTSLnLike = 0.5* (FTSfactor / 0.3)**2
+   SPTHiEllLnLike = SPTHiEllLnLike + FTSLnLike
+   
 
    if (feedback > 1)  then
       print *, 'SPTHiEllLnLike lnlike = ', SPTHiEllLnLike

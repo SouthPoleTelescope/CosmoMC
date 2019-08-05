@@ -1,6 +1,7 @@
 mapCal95		mapCal95
 mapCal150		mapCal150
 mapCal220		mapCal220
+FTS_calibration_error	FTS_calibration_error (GHz)
 D3000_tSZ_143ghz 	D3000_tSZ_143ghz
 D3000_kSZ	 	D3000_kSZ
 D3000_kSZ2	 	D3000_kSZ2
