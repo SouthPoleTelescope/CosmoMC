@@ -27,7 +27,8 @@ relative_alpha_cluster=T
 cosmological_scaling_ksz=F
 cosmological_scaling_tsz=F
 
-
 apply_prior_cirrus_90ghz=T
 apply_prior_cirrus_150ghz=T
 apply_prior_cirrus_220ghz=T
+
+apply_prior_FTS_bands=T
