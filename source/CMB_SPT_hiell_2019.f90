@@ -497,6 +497,7 @@ contains
       print *, 'SPTHiEllLnLike lnlike = ', SPTHiEllLnLike
       print*, 'Calibration chisq',2*(CalibLnLike-CalibLnL0)
       detcov = Matrix_GaussianLogLikeDouble(cov_tmp, deltacb*0)
+      print*,'lnLcov term',detcov
       print *, 'SPTHiEllLike chisq (after priors) = ', 2*(SPTHiEllLnLike-detcov)
    endif
  end function SPTHiEllLnLike
