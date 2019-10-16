@@ -763,7 +763,7 @@ contains
        if (foregrounds%czero_rg_po < 0) then
           getForegroundPriorLnL = getForegroundPriorLnL + 1e6
        endif
-       !print*,'post rg poisson prior:',getForegroundPriorLnL       
+       if (feedback > 3) print*,'post rg poisson prior:',getForegroundPriorLnL       
     endif
     
     radio_cl_amp = GetRadioClAmpPrior()
@@ -774,7 +774,7 @@ contains
        if (foregrounds%czero_rg_cl < 0) then
           getForegroundPriorLnL = getForegroundPriorLnL + 1e6
        endif
-       !print*,'post rg clus prior:',getForegroundPriorLnL       
+       if (feedback > 3) print*,'post rg clus prior:',getForegroundPriorLnL       
     endif
     
   end function getForegroundPriorLnL

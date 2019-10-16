@@ -69,6 +69,8 @@ contains
    param_file = Ini%Read_String_Default( 'spt_hiell_params_file','')
    call this%loadParamNames(param_file)
 
+   
+
    desc_file = Ini%Read_String_Default('spt_hiell_description','')
    bp_file = Ini%Read_String_Default('spt_hiell_bandpowers','')
    
@@ -95,8 +97,8 @@ contains
       
    normalizeSZ_143GHz = .true. !Ini%Read_Logical('normalizeSZ_143ghz',.false.)
    !do we want extra debug prints
-   CallFGPrior =  Ini%Read_Logical('apply_fg_prior',.true.)
-   ApplyFTSPrior == Ini%Read_Logical('apply_prior_FTS_bands',.true.)
+   CallFGPrior   = Ini%Read_Logical('apply_fg_prior',.true.)
+   ApplyFTSPrior = Ini%Read_Logical('apply_prior_FTS_bands',.true.)
    
    printDlSPT = Ini%Read_Logical('print_spectrum',.false.)
    printDlSPTComponents = Ini%Read_Logical('print_spectrum_components',.false.)
@@ -355,6 +357,7 @@ contains
    double precision :: PriorLnLike
    double precision :: dum
    double precision :: SPTHiEllLnLike,CalibLnLike, FTSLnLike, FTSfactor
+   double precision :: FGPriorLnLike, NoCalLnLike
    double precision, parameter :: d3000 = 3000*3001/TWOPI
    double precision, parameter :: beta = 0.0012309
    double precision, parameter :: dipole_cosine = -0.4033
@@ -485,15 +488,17 @@ contains
    cov_w_beam = cov + cov_w_beam
    if (feedback > 1)    cov_tmp=cov_w_beam
    SPTHiEllLnLike =  Matrix_GaussianLogLikeDouble(cov_w_beam, deltacb)
-   
+   NoCalLnLike=SPTHiEllLnLike   
    if (CallFGPrior) then
-      SPTHiEllLnLike = SPTHiEllLnLike + getForegroundPriorLnL(foregroundParams)
+      FGPriorLnLike = getForegroundPriorLnL(foregroundParams)
+      SPTHiEllLnLike = SPTHiEllLnLike + FGPriorLnLike
    endif
 
    delta_calib = log(CalFactors)
    !can take off cov term since cov is fixed, and constant for all points
    tmp=cal_cov
    CalibLnLike = Matrix_GaussianLogLikeDouble(tmp,delta_calib) - CalibLnL0
+
    SPTHiEllLnLike = SPTHiEllLnLike + CalibLnLike
 
    FTSLnLike = 0
@@ -507,6 +512,9 @@ contains
       print*, 'Calibration chisq',2*(CalibLnLike-CalibLnL0)
       detcov = Matrix_GaussianLogLikeDouble(cov_tmp, deltacb*0)
       print*,'lnLcov term',detcov
+      print*,'chisq for cov only:',   2*(NoCalLnLike-detcov)
+      print*,'chisq for fts bit:',2*FTSLnLike
+      print*,'chisq for FG prior:',2*FGPriorLnLike
       print *, 'SPTHiEllLike chisq (after priors) = ', 2*(SPTHiEllLnLike-detcov)
    endif
  end function SPTHiEllLnLike

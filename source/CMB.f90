@@ -60,6 +60,7 @@
 #endif
     use BK_planck
     use CMB_SPTpol_TEEE_2017
+    use CMB_SPTpol_BB_2019
     use CMB_SPT_hiell_2019
     use smica_planck
     class(TLikelihoodList) :: LikeList
@@ -88,6 +89,9 @@
              elseif (DataSets%Name(i) == 'SPTPOL_TEEE') then
                 if (feedback > 1) print*,'trying to do sptpol TEEE'
                 allocate(TSPTpolEELike::like)
+             elseif (DataSets%Name(i) == 'SPTPOL_BB') then
+                if (feedback > 1) print*,'trying to do sptpol BB'
+                allocate(TSPTpolBBLike::like)
              elseif (DataSets%Name(i) == 'SPThiell') then
                 if (feedback > 1) print*,'trying to do spt hiell'
                 allocate(TSPTHiEllLike::like)
