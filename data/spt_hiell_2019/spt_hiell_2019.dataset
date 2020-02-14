@@ -10,25 +10,7 @@ print_spectrum = F
 print_spectrum_components = F
 
 
-spt_dataset_tSZ = ptsrc/dl_shaw_tsz_s10_153ghz_norm1_fake25000.txt
-spt_dataset_kSZ = ptsrc/dl_ksz_CSFplusPATCHY_13sep2011_norm1_fake25000.txt
-spt_dataset_kSZ2 = ptsrc/dl_ksz_oz_patchy_nolowell_20110708_norm1_fake25000.txt
-spt_dataset_clustered = ptsrc/dl_ell0p8_shape_lmax25000.txt
-spt_dataset_clustered2 = ptsrc/dl_ell0p8_shape_lmax25000.txt
-
-
-shang_model_correlation_shape=F
-only_1halo_tsz_cib=F
-radio_ampl_mean=1.3
-radio_ampl_unc=0.3
-single_clustered_freq_scaling=T
-relative_alpha_cluster=T
-
-cosmological_scaling_ksz=F
-cosmological_scaling_tsz=F
-
-apply_prior_cirrus_90ghz=T
-apply_prior_cirrus_150ghz=T
-apply_prior_cirrus_220ghz=T
-
 apply_prior_FTS_bands=T
+
+DEFAULT(batch3/FG_Baseline.ini)
+
