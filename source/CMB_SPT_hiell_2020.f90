@@ -1,7 +1,7 @@
 !Likelihood code used in 
   !SPTpol+SZ l=2000-11000 power spectrum
   !For questions, please contact Christian Reichardt
-  module CMB_SPT_hiell_2019
+  module CMB_SPT_hiell_2020
     use Likelihood_Cosmology
     use CosmoTheory
     use CosmologyTypes
@@ -29,7 +29,8 @@
     logical :: normalizeSZ_143GHz
     logical :: CallFGPrior
     logical :: ApplyFTSPrior
-    
+    logical :: use_dZ
+
     logical :: SuccessfulSPTHiellInitialization
     logical :: printDlSPT, printDlSPTComponents
     logical :: plankish
@@ -63,6 +64,8 @@ contains
    character (LEN=Ini_max_string_len) :: cov_file,beamerr_file
    character (LEN=Ini_max_string_len) :: window_folder
 
+
+   
    call InitFGModel(Ini)
    
 
@@ -102,6 +105,7 @@ contains
    
    printDlSPT = Ini%Read_Logical('print_spectrum',.false.)
    printDlSPTComponents = Ini%Read_Logical('print_spectrum_components',.false.)
+   use_dZ = Ini%Read_Logical('interpret_ksz2_as_dz',.false.)
    if ((printDlSPT .or. printDlSPTComponents) .and. MPIRank /= 0) then
       call MPIStop('Warning - print_spectrum/print_spectrum_components is not MPI thread-safe, quitting...')
    endif
@@ -126,7 +130,7 @@ contains
    double precision, allocatable, dimension(:) :: locwin
    integer*8 :: offset,delta
    integer*4 :: efflmin,efflmax,j0,j1
-   real*8 :: arr(2)
+   real*4 :: arr(2)
    real*8 rtmp
    Type(TTextFile) :: F
    integer*4 :: errcode
@@ -149,7 +153,7 @@ contains
    !to which freqs we're using, ell range, and number of bins per spectrum.
    inquire(FILE=trim(desc_file),EXIST=wexist)
    if (.not. wexist) then
-      print*,'SPT hiell 2019, missing desc file:', trim(desc_file)
+      print*,'SPT hiell 2020, missing desc file:', trim(desc_file)
       call mpistop()
    endif
    
@@ -175,6 +179,7 @@ contains
       print*,'using 143 as tSZ center freq'
    endif
    read (F%unit,*) spt_windows_lmin, spt_windows_lmax !Min and Max ell in window file
+   
    do j=1,nfreq
        do i=1,5
           read (F%unit,*) rtmp
@@ -192,6 +197,11 @@ contains
       print *, 'spt_windows_lmin: ', spt_windows_lmin
       print *, 'spt_windows_lmax: ', spt_windows_lmax
       print *, 'window_folder: ', trim(window_folder)
+   endif
+
+   if (spt_windows_lmax .gt. ReportFGLmax()) then
+      print*,'Hard-wired lmax in foregrounds.f90 is too low for CMB_SPT_hiell_2020.f90'
+      call mpistop()
    endif
 
 
@@ -222,7 +232,7 @@ contains
    !Should be 90x90, 90x`150, 90x220,150x150, 150x220, 220x220 in that order
    inquire(FILE=trim(bp_file),EXIST=wexist)
    if (.not. wexist) then
-      print*,'SPT hiell 2019, missing bp file:', trim(bp_file)
+      print*,'SPT hiell 2020, missing bp file:', trim(bp_file)
       call mpistop()
    endif
    call F%Open(bp_file)
@@ -236,7 +246,7 @@ contains
    ! Read in covariance
    inquire(FILE=trim(cov_file),EXIST=wexist)
    if (.not. wexist) then
-      print*,'SPT hiell 2019, missing cov file:', trim(cov_file)
+      print*,'SPT hiell 2020, missing cov file:', trim(cov_file)
       call mpistop()
    endif
    if (binaryCov) then 
@@ -257,7 +267,7 @@ contains
    if (feedback > 1) print *, 'First entry of covariance matrix: ', cov(1,1)
    inquire(FILE=trim(beamerr_file),EXIST=wexist)
    if (.not. wexist) then
-      print*,'SPT hiell 2019, missing beamerr file:', trim(beamerr_file)
+      print*,'SPT hiell 2020, missing beamerr file:', trim(beamerr_file)
       call mpistop()
    endif
    if (binaryBeamErr) then 
@@ -283,7 +293,7 @@ contains
    if (binaryWindows) then
       inquire(FILE=trim(window_folder),EXIST=wexist)
       if (.not. wexist) then
-         print*,'SPT hiell 2019, missing window file:', trim(window_folder)
+         print*,'SPT hiell 2020, missing window file:', trim(window_folder)
          call mpistop()
       endif
       call OpenReadBinaryStreamFile(trim(window_folder),tmp_file_unit)
@@ -368,7 +378,7 @@ contains
    double precision, dimension(2) :: ADust
    double precision, dimension(2) :: alphaDust
    double precision, dimension(3) ::  CalFactors,delta_calib !90, 150, 220
-   double precision, dimension(10) ::  comp_arr
+   real*4, dimension(10) ::  comp_arr
    type(foreground_params) :: foregroundParams
    integer :: i,j,k, l,kk, thisoffset,thisnbin
    double precision :: norm
@@ -393,15 +403,23 @@ contains
    CalFactors = DataParams(1:3)
    FTSFactor  = DataParams(4)
    foregroundParams = GetForegroundParamsFromArray(DataParams(iFG:iFG+nForegroundParams))
-   kszfac = cosmo_scale_ksz(CMB%H0,Theory%sigma_8,CMB%omb,CMB%omc+CMB%omb+CMB%omnu,CMB%InitPower(ns_index),CMB%tau)
+
    tszfac = cosmo_scale_tsz(CMB%H0,Theory%sigma_8,CMB%omb)
    foregroundParams.czero_tsz = foregroundParams.czero_tsz * tszfac
+   kszfac = cosmo_scale_ksz(CMB%H0,Theory%sigma_8,CMB%omb,CMB%omc+CMB%omb+CMB%omnu,CMB%InitPower(ns_index),CMB%tau)
    foregroundParams.czero_ksz = foregroundParams.czero_ksz * kszfac
+
+   if (use_dZ) then
+      kszfac = pkSZ(foregroundParams.czero_ksz2)
+      foregroundParams.czero_ksz2 = kszfac
+   endif
+
+
    !add this to use negative for correlation
 
-   if (printDlSPT) then
-      call printForegrounds(foregroundParams)
-   endif
+!   if (printDlSPT) then
+!      call printForegrounds(foregroundParams)
+!   endif
 
 
    !$OMP PARALLEL DO  DEFAULT(NONE), &
@@ -418,10 +436,10 @@ contains
       !first get theory spectra
       if (printDlSPTComponents) then
          dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr+FTSfactor, &
-              spt_norm_fr,component_spectra) 
+              spt_norm_fr,spt_windows_lmin,spt_windows_lmax,component_spectra) 
       else
          dl_fgs(spt_windows_lmin:spt_windows_lmax) = dl_foreground(foregroundParams,j,k,nfreq,spt_eff_fr+FTSfactor, &
-              spt_norm_fr) 
+              spt_norm_fr,spt_windows_lmin,spt_windows_lmax) 
       endif
       !add CMB
       dl_fgs(spt_windows_lmin:spt_windows_lmax)=dl_fgs(spt_windows_lmin:spt_windows_lmax)+dl_cmb(spt_windows_lmin:spt_windows_lmax)
@@ -429,7 +447,8 @@ contains
 
 
       if (printDlSPT) then
-         fid=33+GetMpiRank()
+         fid=33+GetMpiRank()+i
+         print*,'printing Dl spt'
          call OpenWriteBinaryFile(trim(numcat('suxp_spt_',i)),fid,4_8 * 2)
          do l=spt_windows_lmin,spt_windows_lmax
             arr(1)=l
@@ -439,20 +458,24 @@ contains
          close(fid)
       endif
       if (printDlSPTComponents) then
-         fid=33+GetMpiRank()
+         fid=33+GetMpiRank()+i
          call OpenWriteBinaryFile(trim(numcat('suxp_spt_components_',i)),fid,4_8 * 10)
+         print*,spt_windows_lmin,spt_windows_lmax
          do l=spt_windows_lmin,spt_windows_lmax
             comp_arr(1)=l
             comp_arr(2)=dl_fgs(l)
             comp_arr(3) = dl_cmb(l)
-            comp_arr(4) = component_spectra(l,1) * cl_to_dl_conversion(l-spt_windows_lmin+1)
-            comp_arr(5) = component_spectra(l,2) * cl_to_dl_conversion(l-spt_windows_lmin+1)
-            comp_arr(6) = component_spectra(l,3) * cl_to_dl_conversion(l-spt_windows_lmin+1)
-            comp_arr(7) = component_spectra(l,4) * cl_to_dl_conversion(l-spt_windows_lmin+1)
-            comp_arr(8) = component_spectra(l,5) * cl_to_dl_conversion(l-spt_windows_lmin+1)
-            comp_arr(9) = component_spectra(l,6) * cl_to_dl_conversion(l-spt_windows_lmin+1)
-            comp_arr(10) = component_spectra(l,7) * cl_to_dl_conversion(l-spt_windows_lmin+1)
+            comp_arr(4) = component_spectra(l,1) 
+            comp_arr(5) = component_spectra(l,2) 
+            comp_arr(6) = component_spectra(l,3) 
+            comp_arr(7) = component_spectra(l,4) 
+            comp_arr(8) = component_spectra(l,5) 
+            comp_arr(9) = component_spectra(l,6) 
+            comp_arr(10) = component_spectra(l,7)
             write(fid,rec=l-spt_windows_lmin+1) comp_arr(1:10)
+            if ((l/1000)*1000 .eq. l) then 
+               print*,'Test: ',comp_arr(:)
+            endif
          enddo
          close(fid)
       endif
@@ -498,6 +521,7 @@ contains
    !can take off cov term since cov is fixed, and constant for all points
    tmp=cal_cov
    CalibLnLike = Matrix_GaussianLogLikeDouble(tmp,delta_calib) - CalibLnL0
+   
 
    SPTHiEllLnLike = SPTHiEllLnLike + CalibLnLike
 
@@ -509,7 +533,8 @@ contains
 
    if (feedback > 1)  then
       print *, 'SPTHiEllLnLike lnlike = ', SPTHiEllLnLike
-      print*, 'Calibration chisq',2*(CalibLnLike-CalibLnL0)
+      print*, 'Calibration chisq (mistakenly double subtracting)',2*(CalibLnLike-CalibLnL0)
+   print*, 'Calibration chisq',2*(CalibLnLike)
       detcov = Matrix_GaussianLogLikeDouble(cov_tmp, deltacb*0)
       print*,'lnLcov term',detcov
       print*,'chisq for cov only:',   2*(NoCalLnLike-detcov)
@@ -519,4 +544,4 @@ contains
    endif
  end function SPTHiEllLnLike
 
-end module CMB_SPT_hiell_2019
+end module CMB_SPT_hiell_2020

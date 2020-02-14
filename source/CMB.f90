@@ -61,7 +61,7 @@
     use BK_planck
     use CMB_SPTpol_TEEE_2017
     use CMB_SPTpol_BB_2019
-    use CMB_SPT_hiell_2019
+    use CMB_SPT_hiell_2020
     use smica_planck
     class(TLikelihoodList) :: LikeList
     class(TSettingIni) :: ini

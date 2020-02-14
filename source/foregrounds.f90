@@ -12,15 +12,16 @@ module foregrounds
        GetForegroundParamsFromArray, GetAlphaPrior, GetCirrusFactor, &
        GetRadioAmpUncPrior, GetRadioAmpPrior, InitRadioAmpPrior, &
        GetRadioClAmpUncPrior, GetRadioClAmpPrior, InitRadioClAmpPrior, &
-       dl_cib_foreground,cosmo_scale_ksz,cosmo_scale_tsz,index_tsz,index_ksz, &
+       dl_cib_foreground,cosmo_scale_ksz,cosmo_scale_tsz,index_tsz,index_ksz, pkSZ, &
        index_dg_po,index_dg_cl,index_cirrus,index_rg_po, &
        HaveForegroundsBeenInitialized,setForegroundsUninitialized,Bnu,&
        read_dl_template,read_cl_template,nForegroundParams,&
        getForegroundPriorLnL,InitFGModel,printForegrounds,&
+       ReportFGLmax, &
        OpenReadBinaryFile,OpenWriteBinaryFile,OpenReadBinaryStreamFile,calFactorsToCIB,MaxNFreq
   
 !set in settings.f90  
-  integer, parameter :: lmax=12000
+  integer, parameter :: lmax=13500
   integer, parameter :: MaxNFreq = 6
   integer, parameter :: NDecorrel = (MaxNFreq-1)*(MaxNFreq)/2
   integer, parameter :: nForegroundParams=39+NDecorrel
@@ -139,20 +140,31 @@ contains
 
 
   !returns Dl = l*(l+1)/2pi*Cl for foregrounds
-  function dl_foreground(params,ifr,jfr,nfr,eff_fr,norm_fr,component_spectra)
+  function dl_foreground(params,ifr,jfr,nfr,eff_fr,norm_fr,req_lmin,req_lmax,component_spectra)
     type(foreground_params) :: params
     integer :: i,ifr,jfr,nfr
+    integer, intent(in) :: req_lmin,req_lmax
     double precision, dimension(5,nfr) :: eff_fr
     double precision, dimension(5) :: norm_fr
-    double precision,dimension(2:lmax) :: dl_foreground
+    double precision,dimension(req_lmin:req_lmax) :: dl_foreground
     double precision :: fri,frj,norm,fr0,frqdep
     double precision,dimension(2:lmax) :: dl_dg_po, dl_dg_cl, dl_rg_po, dl_k_sz, &
          dl_t_sz, dl_cirrus
     double precision,dimension(2:lmax) :: dl_tsz_rg_cor, dl_tsz_dgcl_cor
     double precision,dimension(2:lmax) :: dl_dg, dl_rg
     double precision,dimension(2:lmax) :: dltmpi,dltmpj
-    double precision,dimension(2:lmax,7), optional, intent(out) :: component_spectra
-
+    double precision,dimension(req_lmax,7), optional, intent(out) :: component_spectra
+    
+    if (req_lmax .gt. lmax) then 
+       print*,'asked for too large ell in dl_foreground'
+       call mpistop()
+    endif
+    if (req_lmin .lt. 2) then 
+       print*,'asked for too small ell in dl_foreground'
+       call mpistop()
+    endif
+    
+    
     dl_dg_cl = dl_dusty_clustered(params,eff_fr(1,ifr),eff_fr(1,jfr),norm_fr(1),ifr,jfr)
     dl_dg_po = dl_dusty_poisson(params,eff_fr(2,ifr),eff_fr(2,jfr),norm_fr(2),ifr,jfr)
     dl_rg_po = dl_radio(params,eff_fr(3,ifr),eff_fr(3,jfr),norm_fr(3))
@@ -192,16 +204,16 @@ contains
     
     if (present(component_spectra)) then 
 
-       component_spectra(:,1) = dl_dg_po
-       component_spectra(:,2) = dl_dg_cl
-       component_spectra(:,3) = dl_k_sz
-       component_spectra(:,4) = dl_t_sz
-       component_spectra(:,5) = dl_rg
-       component_spectra(:,6) = dl_tsz_dgcl_cor
-       component_spectra(:,7) = dl_cirrus + dl_tsz_rg_cor 
+       component_spectra(2:req_lmax,1) = dl_dg_po(2:req_lmax)
+       component_spectra(2:req_lmax,2) = dl_dg_cl(2:req_lmax)
+       component_spectra(2:req_lmax,3) = dl_k_sz(2:req_lmax)
+       component_spectra(2:req_lmax,4) = dl_t_sz(2:req_lmax)
+       component_spectra(2:req_lmax,5) = dl_rg(2:req_lmax)
+       component_spectra(2:req_lmax,6) = dl_tsz_dgcl_cor(2:req_lmax)
+       component_spectra(2:req_lmax,7) = dl_cirrus(2:req_lmax) + dl_tsz_rg_cor(2:req_lmax)
     endif
-
-    dl_foreground = dl_dg + dl_rg + dl_t_sz + dl_k_sz + dl_cirrus + dl_tsz_dgcl_cor + dl_tsz_rg_cor 
+    dltmpi = (dl_dg + dl_rg + dl_t_sz + dl_k_sz + dl_cirrus + dl_tsz_dgcl_cor + dl_tsz_rg_cor)
+    dl_foreground = dltmpi(req_lmin:req_lmax)
   end function dl_foreground
 
   function tsz_cib(params,freq)
@@ -375,6 +387,14 @@ contains
 
   end function dl_tsz
 
+!function to do a quick EoR version
+function pkSZ(dZ)
+  double precision :: pkSZ
+  double precision :: dZ
+
+  pkSZ = 1.445 * (dZ/1.05)** 0.51
+
+end function pkSZ
 
 !based on Laurie's email and templates!
 !apply cosmological scaling
@@ -387,6 +407,7 @@ contains
             * ( (omegab/.044)**2.1 ) &
             * ( (omegam/.264)**(-0.44) ) &
             * ( (ns/.96)**(-0.19) ) !&
+
     else
        cosmo_scale_ksz = 1.0
     endif
@@ -521,7 +542,7 @@ contains
     if (filename/='') then
        inquire(FILE=trim(filename),EXIST=wexist)
        if (.not. wexist) then
-          print*,'SPT hiell 2019, missing template file:', trim(filename)
+          print*,'SPT hiell 2020, missing template file:', trim(filename)
           call mpistop()
        endif
 
@@ -547,7 +568,7 @@ contains
     if (filename/='') then
        inquire(FILE=trim(filename),EXIST=wexist)
        if (.not. wexist) then
-          print*,'SPT hiell 2019, missing template file:', trim(filename)
+          print*,'SPT hiell 2020, missing template file:', trim(filename)
           call mpistop()
        endif
        call F%Open(filename)
@@ -573,7 +594,7 @@ contains
     double precision :: del_alpha
     logical :: relative_alpha_cluster
     SuccessfulInitialization=.true.
-
+    
     ! clustered template
     clust_dg_templ = read_dl_template(fClustered)
     clust2_dg_templ = read_dl_template(fClustered2)
@@ -791,6 +812,7 @@ contains
     use IniFile
     use IniObjects
     use settings
+    implicit none
 
     class(TSettingIni) :: Ini
     character(LEN=Ini_max_string_len) SPTtSZTemplate, SPTkSZTemplate, &
@@ -867,9 +889,15 @@ contains
     else
        print*,'called initFGModel w/o all args'
        print*,SPTtSZTemplate,SPTkSZTemplate,SPTkSZ2Template,SPTClusTemplate
+       call mpistop()
        call   setForegroundsUninitialized()
     end if
   end subroutine InitFGModel
+
+  function ReportFGLmax()
+    integer :: ReportFGLmax
+    ReportFGLmax = lmax
+  end function ReportFGLmax
 
   subroutine OpenReadBinaryFile(aname,aunit,record_length)
     character(LEN=*), intent(IN) :: aname

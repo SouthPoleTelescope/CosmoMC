@@ -19,7 +19,7 @@ F90C     = ifort
 #use this if mpif90 is trying to use gfortran: MPIF90C = mpif90 -f90=ifort
 
 
-FFLAGS = -mkl -O3 -no-prec-div -fpp -assume byterecl -extend-source 132
+FFLAGS = -mkl -O3 -no-prec-div -fpp -assume byterecl -extend-source 132 
 DEBUGFLAGS = -mkl -g -check all -check noarg_temp_created -traceback -fpp -fpe0 -assume byterecl -extend-source 132
 
 #add -fpe0 to check for floating point errors (think lowLike also throws these harmlessly)
@@ -100,6 +100,7 @@ NONCLIKLIKE ?=
 IFLAG = -I
 INCLUDE =
 
+
 #clik path and library
 ifneq ($(CLIK_PATH),)
 CLIKL = -L$(CLIK_PATH)/lib -lclik_f90
@@ -151,7 +152,7 @@ ifneq ($(PRECISION),)
 FFLAGS += -D$(PRECISION) -DMATRIX_$(PRECISION)
 endif
 
-PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o $(OUTPUT_DIR)/CMB_SPT_hiell_2019.o $(OUTPUT_DIR)/foregrounds.o
+PLANCKLIKEFILES= $(OUTPUT_DIR)/CMB_BK_Planck.o $(OUTPUT_DIR)/CMB_SPTpol_TEEE_2017.o $(OUTPUT_DIR)/CMB_SPT_hiell_2020.o $(OUTPUT_DIR)/foregrounds.o $(OUTPUT_DIR)/CMB_SPTpol_BB_2019.o
 
 
 ifneq ($(CLIK_PATH),)
@@ -223,7 +224,7 @@ $(OUTPUT_DIR)/GetDist.o: $(OUTPUT_DIR)/IO.o $(OUTPUT_DIR)/samples.o
 
 $(OUTPUT_DIR)/CalcLike_Cosmology.o: $(OUTPUT_DIR)/calclike.o
 $(OUTPUT_DIR)/CMB_SPTpol_BB_2019.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o
-$(OUTPUT_DIR)/CMB_SPT_hiell_2019.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o $(OUTPUT_DIR)/foregrounds.o
+$(OUTPUT_DIR)/CMB_SPT_hiell_2020.o: $(OUTPUT_DIR)/CMBlikes.o $(OUTPUT_DIR)/Matrix_utils_new.o $(OUTPUT_DIR)/foregrounds.o
 $(OUTPUT_DIR)/foregrounds.o: $(OUTPUT_DIR)/IniObjects.o $(OUTPUT_DIR)/settings.o
 $(OUTPUT_DIR)/likelihood.o: $(OUTPUT_DIR)/GeneralTypes.o
 $(OUTPUT_DIR)/GeneralTypes.o: $(OUTPUT_DIR)/ObjectLists.o $(OUTPUT_DIR)/settings.o $(OUTPUT_DIR)/IO.o
